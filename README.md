@@ -148,6 +148,10 @@ Contributions are welcome! Please open an issue or pull request on the [GitHub r
 
 This project is licensed under the MIT License.
 
+## Credits
+
+<a href="https://www.flaticon.com/free-icons/coffee" title="coffee icons">Coffee icon created by Freepik - Flaticon</a>
+
 ## Disclaimer
 
 This is an unofficial integration. It is not affiliated with, endorsed by, or supported by Breville or Sage. Use at your own risk.
