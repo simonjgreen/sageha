@@ -46,8 +46,44 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Return the current cached state data."""
         return self._states
 
+    def _update_state_from_device(self, state: Any) -> None:
+        """Update internal state from a DeviceState object."""
+        serial = state.serial_number
+        self._states[serial] = {
+            "reported_state": state.reported_state,
+            "desired_state": state.desired_state,
+            "boiler_temps": [
+                {"id": b.id, "cur_temp": b.current_temp, "temp_sp": b.target_temp}
+                for b in (state.boiler_temps or [])
+            ],
+            "grind_size": state.grind_size,
+            "theme": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("theme"),
+            "brightness": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("brightness"),
+            "work_light_brightness": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("work_light_brightness"),
+            "volume": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("vol"),
+            "idle_time": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("idle_time"),
+            "timezone": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("timezone"),
+            "firmware": state.raw_data.get("reported", {}).get("firmware", {}),
+            "raw": state.raw_data,
+        }
+
     async def async_start_websocket(self) -> None:
         """Start the WebSocket listener task."""
+        # Fetch initial state for all appliances
+        for appliance in self.appliances:
+            serial = appliance.serial_number
+            try:
+                state = await self.client.get_last_state(serial)
+                if state:
+                    self._update_state_from_device(state)
+                    _LOGGER.debug("Got initial state for %s: %s", serial, state.reported_state)
+            except Exception as err:
+                _LOGGER.warning("Failed to get initial state for %s: %s", serial, err)
+
+        # Notify entities of initial state
+        if self._states:
+            self.async_set_updated_data(self._states)
+
         if self._ws_task is None or self._ws_task.done():
             self._ws_task = self.hass.async_create_task(
                 self._websocket_listener(),
@@ -56,30 +92,21 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _websocket_listener(self) -> None:
         """Listen for WebSocket state updates."""
+        _LOGGER.debug("Starting WebSocket listener")
         try:
             async for state in self.client.tail_state():
-                serial = state.serial_number
-                self._states[serial] = {
-                    "reported_state": state.reported_state,
-                    "desired_state": state.desired_state,
-                    "boiler_temps": [
-                        {"id": b.id, "cur_temp": b.cur_temp, "temp_sp": b.temp_sp}
-                        for b in (state.boiler_temps or [])
-                    ],
-                    "grind_size": state.grind_size,
-                    "theme": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("theme"),
-                    "brightness": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("brightness"),
-                    "work_light_brightness": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("work_light_brightness"),
-                    "volume": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("vol"),
-                    "idle_time": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("idle_time"),
-                    "timezone": state.raw_data.get("reported", {}).get("cfg", {}).get("default", {}).get("timezone"),
-                    "firmware": state.raw_data.get("reported", {}).get("firmware", {}),
-                    "raw": state.raw_data,
-                }
+                _LOGGER.debug(
+                    "Received state update for %s: %s",
+                    state.serial_number,
+                    state.reported_state,
+                )
+                self._update_state_from_device(state)
                 self.async_set_updated_data(self._states)
+        except asyncio.CancelledError:
+            _LOGGER.debug("WebSocket listener cancelled")
+            raise
         except Exception as err:
-            _LOGGER.error("WebSocket error: %s", err)
-            # The library handles reconnection internally, but log the error
+            _LOGGER.exception("WebSocket error: %s", err)
 
     async def async_stop_websocket(self) -> None:
         """Stop the WebSocket listener task."""

@@ -31,20 +31,22 @@ class SageCoffeeSensorEntityDescription(SensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
 
 
-def _get_boiler_temp(state: dict[str, Any], boiler_id: int) -> float | None:
+def _get_boiler_temp(state: dict[str, Any], boiler_id: int | str) -> float | None:
     """Get current temperature for a boiler."""
     boilers = state.get("boiler_temps", [])
     for boiler in boilers:
-        if boiler.get("id") == boiler_id:
+        # Compare as strings since library returns string IDs
+        if str(boiler.get("id")) == str(boiler_id):
             return boiler.get("cur_temp")
     return None
 
 
-def _get_boiler_target(state: dict[str, Any], boiler_id: int) -> float | None:
+def _get_boiler_target(state: dict[str, Any], boiler_id: int | str) -> float | None:
     """Get target temperature for a boiler."""
     boilers = state.get("boiler_temps", [])
     for boiler in boilers:
-        if boiler.get("id") == boiler_id:
+        # Compare as strings since library returns string IDs
+        if str(boiler.get("id")) == str(boiler_id):
             return boiler.get("temp_sp")
     return None
 
