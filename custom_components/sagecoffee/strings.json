@@ -37,6 +37,22 @@
     }
   },
   "entity": {
+    "number": {
+      "display_brightness": {
+        "name": "Display Brightness"
+      },
+      "work_light_brightness": {
+        "name": "Work Light Brightness"
+      },
+      "volume_level": {
+        "name": "Volume"
+      }
+    },
+    "select": {
+      "color_theme": {
+        "name": "Color Theme"
+      }
+    },
     "sensor": {
       "auto_off": {
         "name": "Auto-off Time"
@@ -75,6 +91,11 @@
     "switch": {
       "power": {
         "name": "Power"
+      }
+    },
+    "text": {
+      "appliance_name": {
+        "name": "Appliance Name"
       }
     }
   }
