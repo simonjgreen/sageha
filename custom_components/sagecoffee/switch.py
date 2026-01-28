@@ -1,4 +1,5 @@
 """Switch platform for Sage Coffee integration."""
+
 from __future__ import annotations
 
 import logging
@@ -11,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import DOMAIN, STATE_ASLEEP, STATE_READY, STATE_WARMING
+from .const import DOMAIN, STATE_READY, STATE_WARMING
 
 _LOGGER = logging.getLogger(__name__)
 
