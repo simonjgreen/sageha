@@ -1,0 +1,67 @@
+set_wake_schedule:
+  name: Set wake schedule
+  description: Set an automatic wake schedule for the appliance.
+  fields:
+    serial:
+      name: Appliance serial
+      description: The serial number of the target appliance
+      example: A1BUAESA252503225
+      required: true
+      selector:
+        text:
+    hours:
+      name: Hour (0-23)
+      description: 24-hour clock hour when the appliance should wake
+      example: 7
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 23
+          mode: box
+    minutes:
+      name: Minute (0-59)
+      description: Minute when the appliance should wake
+      example: 30
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 59
+          mode: box
+    days:
+      name: Days of week
+      description: Days to run (e.g., mon,tue,wed). If omitted, runs every day.
+      example: [mon, tue, wed, thu, fri]
+      required: false
+      selector:
+        select:
+          mode: list
+          multiple: true
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+    enabled:
+      name: Enabled
+      description: Enable or disable the wake schedule
+      required: false
+      default: true
+      selector:
+        boolean:
+
+disable_wake_schedule:
+  name: Disable wake schedule
+  description: Disable the automatic wake schedule for the appliance.
+  fields:
+    serial:
+      name: Appliance serial
+      description: The serial number of the target appliance
+      example: A1BUAESA252503225
+      required: true
+      selector:
+        text:
