@@ -125,11 +125,13 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_start_websocket(self) -> None:
         """Start the WebSocket listener task."""
-        # Fetch initial state for all appliances (get_last_state is NOT async)
+        # Fetch initial state for all appliances (get_last_state is sync, run in executor)
         for appliance in self.appliances:
             serial = appliance.serial_number
             try:
-                state = self.client.get_last_state(serial)
+                state = await self.hass.async_add_executor_job(
+                    self.client.get_last_state, serial
+                )
                 if state:
                     self._update_state_from_device(state)
                     _LOGGER.debug(
