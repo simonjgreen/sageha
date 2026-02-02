@@ -11,7 +11,7 @@
     "step": {
       "password": {
         "data": {
-          "machine_type": "Machine Type",
+          "brand": "Brand",
           "password": "Password",
           "username": "Email"
         },
@@ -20,7 +20,7 @@
       },
       "token": {
         "data": {
-          "machine_type": "Machine Type",
+          "brand": "Brand",
           "refresh_token": "Refresh Token"
         },
         "description": "If you already have a refresh token from sagectl, paste it here.\n\nTo get a token, run:\n`{bootstrap_command}`",
@@ -37,6 +37,22 @@
     }
   },
   "entity": {
+    "number": {
+      "display_brightness": {
+        "name": "Display Brightness"
+      },
+      "work_light_brightness": {
+        "name": "Work Light Brightness"
+      },
+      "volume_level": {
+        "name": "Volume"
+      }
+    },
+    "select": {
+      "color_theme": {
+        "name": "Color Theme"
+      }
+    },
     "sensor": {
       "auto_off": {
         "name": "Auto-off Time"
@@ -75,6 +91,11 @@
     "switch": {
       "power": {
         "name": "Power"
+      }
+    },
+    "text": {
+      "appliance_name": {
+        "name": "Appliance Name"
       }
     }
   }

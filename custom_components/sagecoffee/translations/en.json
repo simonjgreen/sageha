@@ -14,14 +14,16 @@
         "description": "Enter your Sage/Breville account credentials.",
         "data": {
           "username": "Email",
-          "password": "Password"
+          "password": "Password",
+          "brand": "Brand"
         }
       },
       "token": {
         "title": "Use Refresh Token",
         "description": "If you already have a refresh token from sagectl, paste it here.\n\nTo get a token, run:\n`{bootstrap_command}`",
         "data": {
-          "refresh_token": "Refresh Token"
+          "refresh_token": "Refresh Token",
+          "brand": "Brand"
         }
       }
     },

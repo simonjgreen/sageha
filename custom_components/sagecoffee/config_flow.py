@@ -19,7 +19,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
-    CONF_MACHINE_TYPE,
+    CONF_BRAND,
     CONF_REFRESH_TOKEN,
     DOMAIN,
     MACHINE_TYPE_BREVILLE,
@@ -36,7 +36,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_PASSWORD): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
-        vol.Required(CONF_MACHINE_TYPE): SelectSelector(
+        vol.Required(CONF_BRAND): SelectSelector(
             SelectSelectorConfig(
                 options=[
                     {"label": "Sage", "value": MACHINE_TYPE_SAGE},
@@ -52,7 +52,7 @@ STEP_TOKEN_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_REFRESH_TOKEN): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
-        vol.Required(CONF_MACHINE_TYPE): SelectSelector(
+        vol.Required(CONF_BRAND): SelectSelector(
             SelectSelectorConfig(
                 options=[
                     {"label": "Sage", "value": MACHINE_TYPE_SAGE},
@@ -102,7 +102,7 @@ class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
                     title="Sage Coffee",
                     data={
                         CONF_REFRESH_TOKEN: self._refresh_token,
-                        CONF_MACHINE_TYPE: user_input[CONF_MACHINE_TYPE],
+                        CONF_BRAND: user_input[CONF_BRAND],
                     },
                 )
 
@@ -137,7 +137,7 @@ class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
                     title="Sage Coffee",
                     data={
                         CONF_REFRESH_TOKEN: self._refresh_token,
-                        CONF_MACHINE_TYPE: user_input[CONF_MACHINE_TYPE],
+                        CONF_BRAND: user_input[CONF_BRAND],
                     },
                 )
 

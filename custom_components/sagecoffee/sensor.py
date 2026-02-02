@@ -1,4 +1,5 @@
 """Sensor platform for Sage Coffee integration."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -159,9 +160,7 @@ async def async_setup_entry(
 
     for appliance in coordinator.appliances:
         for description in SENSOR_DESCRIPTIONS:
-            entities.append(
-                SageCoffeeSensor(coordinator, appliance, description)
-            )
+            entities.append(SageCoffeeSensor(coordinator, appliance, description))
 
     async_add_entities(entities)
 
