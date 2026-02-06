@@ -111,8 +111,15 @@ data:
   serial: A1BUAESA252503225
   hours: 7
   minutes: 30
-  days: mon,tue,wed,thu,fri
+  days:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
 ```
+
+The `days` field is optional. If omitted, the schedule runs every day. The `enabled` field (default `true`) can be set to `false` to create a disabled schedule.
 
 ### Disable wake schedule
 
