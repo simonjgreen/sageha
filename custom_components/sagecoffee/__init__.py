@@ -213,7 +213,15 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
         try:
             # Build cron expression: "minute hour * * days-of-week"
-            days_of_week = ",".join(days) if days else "*"
+            # API expects numeric days: 1=Mon, 2=Tue, ..., 7=Sun
+            day_to_num = {
+                "mon": "1", "tue": "2", "wed": "3", "thu": "4",
+                "fri": "5", "sat": "6", "sun": "7",
+            }
+            if days:
+                days_of_week = ",".join(day_to_num[d] for d in days)
+            else:
+                days_of_week = "*"
             cron = f"{minutes} {hours} * * {days_of_week}"
 
             await coordinator.client.set_wake_schedule(
