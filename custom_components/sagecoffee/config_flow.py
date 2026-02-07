@@ -9,6 +9,7 @@ from sagecoffee.auth import DEFAULT_CLIENT_ID, AuthClient
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers.selector import (
     SelectSelector,
@@ -112,6 +113,8 @@ class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
                     },
                 )
 
+            except AbortFlow:
+                raise
             except Exception as err:
                 _LOGGER.exception("Authentication failed: %s", err)
                 errors["base"] = "invalid_auth"
@@ -153,6 +156,8 @@ class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
                     },
                 )
 
+            except AbortFlow:
+                raise
             except Exception as err:
                 _LOGGER.exception("Token validation failed: %s", err)
                 errors["base"] = "invalid_auth"
