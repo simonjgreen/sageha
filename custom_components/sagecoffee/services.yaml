@@ -31,21 +31,10 @@ set_wake_schedule:
           mode: box
     days:
       name: Days of week
-      description: Days to run (e.g., mon,tue,wed). If omitted, runs every day.
-      example: [mon, tue, wed, thu, fri]
+      description: "Days to run as a list (mon, tue, wed, thu, fri, sat, sun). If omitted, runs every day."
       required: false
       selector:
-        select:
-          mode: list
-          multiple: true
-          options:
-            - mon
-            - tue
-            - wed
-            - thu
-            - fri
-            - sat
-            - sun
+        object:
     enabled:
       name: Enabled
       description: Enable or disable the wake schedule

@@ -17,7 +17,7 @@ from .const import DOMAIN, STATE_ASLEEP
 _LOGGER = logging.getLogger(__name__)
 
 # Available themes based on Sage Coffee API
-AVAILABLE_THEMES = ["default", "dark", "light"]
+AVAILABLE_THEMES = ["dark", "light"]
 
 
 async def async_setup_entry(
@@ -89,7 +89,7 @@ class SageCoffeeThemeSelect(CoordinatorEntity[SageCoffeeCoordinator], SelectEnti
             raise ValueError(f"Invalid theme: {option}")
 
         try:
-            await self.coordinator.client.set_color_theme(self._serial, option)
+            await self.coordinator.client.set_color_theme(option, self._serial)
             # Update the state through coordinator
             state = self.coordinator.get_state(self._serial)
             if state:
