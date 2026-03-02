@@ -286,21 +286,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: SageCoffeeConfigEntry) -
     if not refresh_token:
         raise ConfigEntryAuthFailed("No refresh token available")
 
+    # Get Home Assistant's pre-configured httpx client and SSL context
+    http_client = httpx_client.get_async_client(hass)
+    # Run SSL context creation in executor to avoid blocking the event loop
+    # (load_verify_locations performs blocking I/O loading certificate bundles)
+    ssl_context = await hass.async_add_executor_job(ssl_util.client_context)
+
+    client = SageCoffeeClient(
+        client_id=DEFAULT_CLIENT_ID,
+        refresh_token=refresh_token,
+        app=entry.data.get(CONF_BRAND),
+        httpx_client=http_client,
+        ssl_context=ssl_context,
+    )
+    await client.__aenter__()
+
     try:
-        # Get Home Assistant's pre-configured httpx client and SSL context
-        # These are created in the executor to avoid blocking the event loop
-        http_client = httpx_client.get_async_client(hass)
-        ssl_context = ssl_util.client_context()
-
-        client = SageCoffeeClient(
-            client_id=DEFAULT_CLIENT_ID,
-            refresh_token=refresh_token,
-            app=entry.data.get(CONF_BRAND),
-            httpx_client=http_client,
-            ssl_context=ssl_context,
-        )
-        await client.__aenter__()
-
         # Discover appliances
         appliances = await client.list_appliances()
         if not appliances:
@@ -310,6 +311,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SageCoffeeConfigEntry) -
 
     except Exception as err:
         _LOGGER.error("Failed to connect to Sage Coffee API: %s", err)
+        await client.__aexit__(None, None, None)
         raise ConfigEntryNotReady from err
 
     # Create coordinator
