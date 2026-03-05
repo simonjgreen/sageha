@@ -34,7 +34,7 @@ NUMBER_DESCRIPTIONS: tuple[SageCoffeeNumberEntityDescription, ...] = (
     SageCoffeeNumberEntityDescription(
         key="brightness",
         translation_key="display_brightness",
-        native_min_value=1,
+        native_min_value=0,
         native_max_value=100,
         native_step=10,
         value_fn=lambda state: state.get("brightness"),
@@ -45,7 +45,7 @@ NUMBER_DESCRIPTIONS: tuple[SageCoffeeNumberEntityDescription, ...] = (
     SageCoffeeNumberEntityDescription(
         key="work_light_brightness",
         translation_key="work_light_brightness",
-        native_min_value=1,
+        native_min_value=0,
         native_max_value=100,
         native_step=10,
         value_fn=lambda state: state.get("work_light_brightness"),
@@ -56,7 +56,7 @@ NUMBER_DESCRIPTIONS: tuple[SageCoffeeNumberEntityDescription, ...] = (
     SageCoffeeNumberEntityDescription(
         key="volume",
         translation_key="volume_level",
-        native_min_value=1,
+        native_min_value=0,
         native_max_value=100,
         native_step=10,
         value_fn=lambda state: state.get("volume"),
