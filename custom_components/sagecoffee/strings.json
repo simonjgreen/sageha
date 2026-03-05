@@ -15,6 +15,11 @@
           "password": "Password",
           "username": "Email"
         },
+        "data_description": {
+          "brand": "Select \"Sage\" if your machine was purchased in Europe, or \"Breville\" for the rest of the world.",
+          "username": "The email address associated with your Sage/Breville account.",
+          "password": "The password for your Sage/Breville account."
+        },
         "description": "Enter your Sage/Breville account credentials.",
         "title": "Sign in to Sage/Breville"
       },
@@ -22,6 +27,10 @@
         "data": {
           "brand": "Brand",
           "refresh_token": "Refresh Token"
+        },
+        "data_description": {
+          "brand": "Select \"Sage\" if your machine was purchased in Europe, or \"Breville\" for the rest of the world.",
+          "refresh_token": "Paste the refresh token from your sagectl config file."
         },
         "description": "If you already have a refresh token from sagectl, paste it here.\n\nTo get a token, run:\n`{bootstrap_command}`",
         "title": "Use Refresh Token"
