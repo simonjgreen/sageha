@@ -38,7 +38,7 @@ class SageCoffeePowerSwitch(CoordinatorEntity[SageCoffeeCoordinator], SwitchEnti
 
     _attr_device_class = SwitchDeviceClass.SWITCH
     _attr_has_entity_name = True
-    _attr_name = "Power"
+    _attr_translation_key = "power"
 
     def __init__(
         self,
