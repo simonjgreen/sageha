@@ -188,6 +188,14 @@ automation:
 - Ensure your machine is paired with your Sage/Breville account
 - Try re-pairing the machine using the official Sage/Breville app
 
+## Removal
+
+1. Go to **Settings** → **Devices & Services**
+2. Find "Sage Coffee" and click on it
+3. Click the three dots menu and select **Delete**
+4. If installed via HACS, also remove it there: go to **HACS** → find "Sage Coffee" → click the three dots menu → **Remove**
+5. Restart Home Assistant if prompted
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or pull request on the [GitHub repository](https://github.com/simonjgreen/sageha).
