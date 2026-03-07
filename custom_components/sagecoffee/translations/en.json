@@ -70,6 +70,9 @@
       },
       "auto_off": {
         "name": "Auto-off Time"
+      },
+      "firmware_version": {
+        "name": "Firmware Version"
       }
     },
     "switch": {

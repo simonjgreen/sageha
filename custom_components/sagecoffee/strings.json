@@ -95,6 +95,9 @@
       },
       "work_light": {
         "name": "Work Light Brightness"
+      },
+      "firmware_version": {
+        "name": "Firmware Version"
       }
     },
     "switch": {
