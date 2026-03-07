@@ -85,9 +85,6 @@
       "brightness": {
         "name": "Display Brightness"
       },
-      "work_light": {
-        "name": "Work Light Brightness"
-      },
       "grind_size": {
         "name": "Grind Size"
       },
@@ -109,12 +106,14 @@
         "name": "Power"
       }
     },
+    "light": {
+      "work_light": {
+        "name": "Work Light"
+      }
+    },
     "number": {
       "display_brightness": {
         "name": "Display Brightness"
-      },
-      "work_light_brightness": {
-        "name": "Work Light Brightness"
       },
       "volume_level": {
         "name": "Volume"

@@ -81,12 +81,14 @@
     }
   },
   "entity": {
+    "light": {
+      "work_light": {
+        "name": "Work Light"
+      }
+    },
     "number": {
       "display_brightness": {
         "name": "Display Brightness"
-      },
-      "work_light_brightness": {
-        "name": "Work Light Brightness"
       },
       "volume_level": {
         "name": "Volume"
@@ -127,9 +129,6 @@
       },
       "volume": {
         "name": "Volume"
-      },
-      "work_light": {
-        "name": "Work Light Brightness"
       },
       "firmware_version": {
         "name": "Firmware Version"

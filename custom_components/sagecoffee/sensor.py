@@ -181,14 +181,6 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         value_fn=lambda state: state.get("brightness"),
     ),
     SageCoffeeSensorEntityDescription(
-        key="work_light",
-        translation_key="work_light",
-        name="Work Light Brightness",
-        icon="mdi:desk-lamp",
-        native_unit_of_measurement="%",
-        value_fn=lambda state: state.get("work_light_brightness"),
-    ),
-    SageCoffeeSensorEntityDescription(
         key="grind_size",
         translation_key="grind_size",
         name="Grind Size",
