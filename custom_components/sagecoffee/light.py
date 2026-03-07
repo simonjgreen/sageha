@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.color import brightness_to_value, value_to_brightness
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import DOMAIN
+from .const import DOMAIN, STATE_ASLEEP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,7 +68,12 @@ class SageCoffeeWorkLight(CoordinatorEntity[SageCoffeeCoordinator], LightEntity)
     @property
     def is_on(self) -> bool | None:
         """Return True if the work light is on."""
-        value = self._api_brightness()
+        state = self.coordinator.get_state(self._serial)
+        if state is None:
+            return None
+        if state.get("reported_state", "").lower() == STATE_ASLEEP:
+            return False
+        value = state.get("work_light_brightness")
         if value is None:
             return None
         return value > 0
@@ -79,7 +84,7 @@ class SageCoffeeWorkLight(CoordinatorEntity[SageCoffeeCoordinator], LightEntity)
         value = self._api_brightness()
         if not value:
             return None
-        return value_to_brightness((0, 100), value)
+        return value_to_brightness((1, 100), value)
 
     @property
     def color_mode(self) -> ColorMode:
@@ -89,14 +94,13 @@ class SageCoffeeWorkLight(CoordinatorEntity[SageCoffeeCoordinator], LightEntity)
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on the work light."""
         ha_brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
-        # Convert HA scale (1–255) to API range (0–100), rounded to nearest 10
-        raw = brightness_to_value((0, 100), ha_brightness)
+        # Convert HA scale (1–255) to API range (1–100), rounded to nearest 10
+        raw = brightness_to_value((1, 100), ha_brightness)
         value = round(raw / 10) * 10
         # Ensure turning on always results in a visible brightness
         value = max(10, min(100, value))
-        await self.coordinator.client.set_coffee_params(
-            {"cfg": {"default": {"work_light_brightness": value}}},
-            serial=self._serial,
+        await self.coordinator.client.set_work_light_brightness(
+            value, serial=self._serial
         )
         state = self.coordinator.get_state(self._serial)
         if state is not None:
@@ -105,9 +109,8 @@ class SageCoffeeWorkLight(CoordinatorEntity[SageCoffeeCoordinator], LightEntity)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the work light."""
-        await self.coordinator.client.set_coffee_params(
-            {"cfg": {"default": {"work_light_brightness": 0}}},
-            serial=self._serial,
+        await self.coordinator.client.set_work_light_brightness(
+            0, serial=self._serial
         )
         state = self.coordinator.get_state(self._serial)
         if state is not None:
