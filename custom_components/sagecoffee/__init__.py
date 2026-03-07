@@ -122,6 +122,11 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             .get("cfg", {})
             .get("default", {})
             .get("timezone"),
+            "wake_schedule": state.raw_data.get("reported", {})
+            .get("cfg", {})
+            .get("default", {})
+            .get("wake_schedule")
+            or [],
             "firmware": state.raw_data.get("reported", {}).get("firmware", {}),
         }
 

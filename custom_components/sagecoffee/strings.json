@@ -98,6 +98,9 @@
       },
       "firmware_version": {
         "name": "Firmware Version"
+      },
+      "wake_schedule_next": {
+        "name": "Next Wake Time"
       }
     },
     "switch": {

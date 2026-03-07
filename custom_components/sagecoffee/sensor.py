@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 import logging
 from typing import Any
+import zoneinfo
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -30,6 +32,71 @@ class SageCoffeeSensorEntityDescription(SensorEntityDescription):
     """Describes a Sage Coffee sensor entity."""
 
     value_fn: Callable[[dict[str, Any]], Any]
+
+
+def _parse_cron_next(
+    cron: str, after: datetime, tz: zoneinfo.ZoneInfo
+) -> datetime | None:
+    """Return the next occurrence of a cron schedule after `after`.
+
+    Expects the device cron format: "MM HH * * DAYS"
+    where DAYS uses 1=Mon through 7=Sun.
+    """
+    parts = cron.split()
+    if len(parts) != 5:
+        return None
+    try:
+        minute = int(parts[0])
+        hour = int(parts[1])
+        days_str = parts[4]
+    except ValueError:
+        return None
+
+    # Parse days-of-week into Python weekday set (0=Mon…6=Sun)
+    allowed: set[int] = set()
+    if days_str == "*":
+        allowed = set(range(7))
+    else:
+        for part in days_str.split(","):
+            if "-" in part:
+                start, end = part.split("-", 1)
+                for d in range(int(start), int(end) + 1):
+                    allowed.add((d - 1) % 7)
+            else:
+                allowed.add((int(part) - 1) % 7)
+
+    # Walk forward up to 8 days to find the next matching slot
+    candidate = after.replace(second=0, microsecond=0)
+    for _ in range(8):
+        if candidate.weekday() in allowed:
+            scheduled = candidate.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if scheduled > after:
+                return scheduled
+        next_date = (candidate + timedelta(days=1)).date()
+        candidate = datetime(next_date.year, next_date.month, next_date.day, 0, 0, 0, tzinfo=tz)
+
+    return None
+
+
+def _get_next_wake_time(state: dict[str, Any]) -> datetime | None:
+    """Return the next scheduled wake time across all enabled schedule entries."""
+    schedules = state.get("wake_schedule") or []
+    tz_name = state.get("timezone") or "UTC"
+    try:
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except (zoneinfo.ZoneInfoNotFoundError, KeyError):
+        tz = zoneinfo.ZoneInfo("UTC")
+
+    now = datetime.now(tz)
+    next_wake: datetime | None = None
+    for entry in schedules:
+        if not entry.get("on"):
+            continue
+        dt = _parse_cron_next(entry.get("cron", ""), now, tz)
+        if dt is not None and (next_wake is None or dt < next_wake):
+            next_wake = dt
+
+    return next_wake
 
 
 def _get_boiler_temp(state: dict[str, Any], boiler_id: int | str) -> float | None:
@@ -152,6 +219,14 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         icon="mdi:chip",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda state: (state.get("firmware") or {}).get("version"),
+    ),
+    SageCoffeeSensorEntityDescription(
+        key="wake_schedule_next",
+        translation_key="wake_schedule_next",
+        name="Next Wake Time",
+        icon="mdi:alarm",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=_get_next_wake_time,
     ),
 )
 
