@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import Any
 
+import httpx
+
 from sagecoffee import SageCoffeeClient
 from sagecoffee.auth import DEFAULT_CLIENT_ID
 
@@ -173,7 +175,13 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("WebSocket listener cancelled")
             raise
         except Exception as err:
-            _LOGGER.exception("WebSocket error: %s", err)
+            if _is_auth_error(err):
+                _LOGGER.error(
+                    "Authentication failure detected, requesting re-auth: %s", err
+                )
+                self.config_entry.async_start_reauth(self.hass)
+            else:
+                _LOGGER.exception("WebSocket error: %s", err)
 
     async def async_stop_websocket(self) -> None:
         """Stop the WebSocket listener task."""
@@ -191,6 +199,19 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def get_state(self, serial: str) -> dict[str, Any] | None:
         """Get the current state for an appliance."""
         return self._states.get(serial)
+
+
+def _is_auth_error(err: Exception) -> bool:
+    """Return True if the exception indicates an authentication failure."""
+    if isinstance(err, httpx.HTTPStatusError) and err.response.status_code in (
+        400,
+        401,
+        403,
+    ):
+        return True
+    if isinstance(err, ValueError) and "token" in str(err).lower():
+        return True
+    return False
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
