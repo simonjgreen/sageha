@@ -80,13 +80,18 @@ For each coffee machine, the integration creates:
 | ------ | ----------------------------------------- |
 | Theme  | Set theme (dark/light)                    |
 
+### Light
+
+| Entity     | Description                                      |
+| ---------- | ------------------------------------------------ |
+| Work Light | Cup warmer illumination — on/off with brightness |
+
 ### Number
 
-| Entity                | Description                                |
-| --------------------- | ------------------------------------------ |
-| Display Brightness    | Set display brightness percentage          |
-| Work Light Brightness | Set Cup warmer light brightness percentage |
-| Volume                | Set volume level percentage                |
+| Entity             | Description                       |
+| ------------------ | --------------------------------- |
+| Display Brightness | Set display brightness percentage |
+| Volume             | Set volume level percentage       |
 
 ### Sensors
 
@@ -99,7 +104,6 @@ For each coffee machine, the integration creates:
 | Steam Target Temperature | Target steam boiler temperature                |
 | Theme                    | Display theme (dark/light)                     |
 | Display Brightness       | Display brightness percentage                  |
-| Work Light Brightness    | Cup warmer light brightness percentage         |
 | Grind Size               | Current grinder setting                        |
 | Volume                   | Volume level percentage                        |
 | Auto-off Time            | Idle time before auto-sleep (minutes)          |

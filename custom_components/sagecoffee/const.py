@@ -30,10 +30,9 @@ SENSOR_STEAM_TEMP = "steam_temp"
 SENSOR_STEAM_TARGET = "steam_target"
 SENSOR_THEME = "theme"
 SENSOR_BRIGHTNESS = "brightness"
-SENSOR_WORK_LIGHT = "work_light"
 SENSOR_GRIND_SIZE = "grind_size"
 SENSOR_VOLUME = "volume"
 SENSOR_AUTO_OFF = "auto_off"
 
 # Platforms
-PLATFORMS = ["switch", "sensor", "text", "select", "number"]
+PLATFORMS = ["switch", "sensor", "text", "select", "number", "light"]
