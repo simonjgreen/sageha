@@ -79,17 +79,8 @@
       "steam_target": {
         "name": "Steam Target Temperature"
       },
-      "theme": {
-        "name": "Theme"
-      },
-      "brightness": {
-        "name": "Display Brightness"
-      },
       "grind_size": {
         "name": "Grind Size"
-      },
-      "volume": {
-        "name": "Volume"
       },
       "auto_off": {
         "name": "Auto-off Time"

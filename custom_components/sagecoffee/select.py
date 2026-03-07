@@ -41,6 +41,7 @@ class SageCoffeeThemeSelect(CoordinatorEntity[SageCoffeeCoordinator], SelectEnti
 
     _attr_has_entity_name = True
     _attr_translation_key = "color_theme"
+    _attr_icon = "mdi:palette"
     _attr_options = AVAILABLE_THEMES
 
     def __init__(
