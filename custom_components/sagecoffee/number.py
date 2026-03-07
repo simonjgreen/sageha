@@ -34,6 +34,7 @@ NUMBER_DESCRIPTIONS: tuple[SageCoffeeNumberEntityDescription, ...] = (
     SageCoffeeNumberEntityDescription(
         key="brightness",
         translation_key="display_brightness",
+        icon="mdi:brightness-6",
         native_min_value=0,
         native_max_value=100,
         native_step=10,
@@ -45,6 +46,7 @@ NUMBER_DESCRIPTIONS: tuple[SageCoffeeNumberEntityDescription, ...] = (
     SageCoffeeNumberEntityDescription(
         key="volume",
         translation_key="volume_level",
+        icon="mdi:volume-high",
         native_min_value=0,
         native_max_value=100,
         native_step=10,

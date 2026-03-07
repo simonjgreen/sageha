@@ -166,34 +166,11 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         value_fn=lambda state: _get_boiler_target(state, BOILER_STEAM),
     ),
     SageCoffeeSensorEntityDescription(
-        key="theme",
-        translation_key="theme",
-        name="Theme",
-        icon="mdi:palette",
-        value_fn=lambda state: state.get("theme"),
-    ),
-    SageCoffeeSensorEntityDescription(
-        key="brightness",
-        translation_key="brightness",
-        name="Display Brightness",
-        icon="mdi:brightness-6",
-        native_unit_of_measurement="%",
-        value_fn=lambda state: state.get("brightness"),
-    ),
-    SageCoffeeSensorEntityDescription(
         key="grind_size",
         translation_key="grind_size",
         name="Grind Size",
         icon="mdi:grain",
         value_fn=lambda state: state.get("grind_size"),
-    ),
-    SageCoffeeSensorEntityDescription(
-        key="volume",
-        translation_key="volume",
-        name="Volume",
-        icon="mdi:volume-high",
-        native_unit_of_measurement="%",
-        value_fn=lambda state: state.get("volume"),
     ),
     SageCoffeeSensorEntityDescription(
         key="auto_off",
@@ -210,7 +187,7 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         name="Firmware Version",
         icon="mdi:chip",
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda state: (state.get("firmware") or {}).get("version"),
+        value_fn=lambda state: (state.get("firmware") or {}).get("appVersion"),
     ),
     SageCoffeeSensorEntityDescription(
         key="wake_schedule_next",

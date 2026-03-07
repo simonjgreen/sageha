@@ -109,9 +109,6 @@
       "brew_temperature": {
         "name": "Brew Temperature"
       },
-      "brightness": {
-        "name": "Display Brightness"
-      },
       "grind_size": {
         "name": "Grind Size"
       },
@@ -123,12 +120,6 @@
       },
       "steam_temperature": {
         "name": "Steam Temperature"
-      },
-      "theme": {
-        "name": "Theme"
-      },
-      "volume": {
-        "name": "Volume"
       },
       "firmware_version": {
         "name": "Firmware Version"
