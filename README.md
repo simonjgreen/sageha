@@ -10,6 +10,8 @@ Home Assistant custom integration for Sage/Breville connected coffee machines.
 - **Real-time State Monitoring**: See if your machine is ready, warming up, or asleep
 - **Temperature Sensors**: Monitor brew and steam boiler temperatures
 - **Configuration Sensors**: View theme, brightness, grind size, and more
+- **Wake Schedule**: See when your machine is next scheduled to switch on automatically
+- **Firmware Version**: Check the installed firmware version from the device page
 
 ## Supported Machines
 
@@ -101,6 +103,8 @@ For each coffee machine, the integration creates:
 | Grind Size               | Current grinder setting                        |
 | Volume                   | Volume level percentage                        |
 | Auto-off Time            | Idle time before auto-sleep (minutes)          |
+| Next Wake Time           | Next scheduled automatic wake time             |
+| Firmware Version         | Installed firmware version (diagnostic)        |
 
 ## Actions
 
