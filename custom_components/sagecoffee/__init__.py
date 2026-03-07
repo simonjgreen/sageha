@@ -55,6 +55,8 @@ DISABLE_WAKE_SCHEDULE_SCHEMA = vol.Schema(
     }
 )
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 type SageCoffeeConfigEntry = ConfigEntry[SageCoffeeCoordinator]
 
 
