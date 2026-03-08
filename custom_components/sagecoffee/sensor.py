@@ -16,13 +16,12 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import BOILER_BREW, BOILER_STEAM, DOMAIN
+from .const import BOILER_BREW, BOILER_STEAM
+from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -217,11 +216,10 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class SageCoffeeSensor(CoordinatorEntity[SageCoffeeCoordinator], SensorEntity):
+class SageCoffeeSensor(SageCoffeeEntity, SensorEntity):
     """Represents a sensor for a Sage Coffee machine."""
 
     entity_description: SageCoffeeSensorEntityDescription
-    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -230,20 +228,9 @@ class SageCoffeeSensor(CoordinatorEntity[SageCoffeeCoordinator], SensorEntity):
         description: SageCoffeeSensorEntityDescription,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator)
+        super().__init__(coordinator, appliance)
         self.entity_description = description
-        self._appliance = appliance
-        self._serial = appliance.serial_number
         self._attr_unique_id = f"{self._serial}_{description.key}"
-
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._serial)},
-            name=appliance.name or f"Sage Coffee {self._serial[-4:]}",
-            manufacturer="Sage/Breville",
-            model=appliance.model or "Unknown",
-            serial_number=self._serial,
-        )
 
     @property
     def native_value(self) -> Any:
@@ -253,7 +240,3 @@ class SageCoffeeSensor(CoordinatorEntity[SageCoffeeCoordinator], SensorEntity):
             return None
         return self.entity_description.value_fn(state)
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self.async_write_ha_state()

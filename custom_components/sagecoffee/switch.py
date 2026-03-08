@@ -6,13 +6,12 @@ import logging
 from typing import Any
 
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import DOMAIN, STATE_READY, STATE_WARMING
+from .const import STATE_READY, STATE_WARMING
+from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,11 +32,10 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class SageCoffeePowerSwitch(CoordinatorEntity[SageCoffeeCoordinator], SwitchEntity):
+class SageCoffeePowerSwitch(SageCoffeeEntity, SwitchEntity):
     """Represents the power state of a Sage Coffee machine."""
 
     _attr_device_class = SwitchDeviceClass.SWITCH
-    _attr_has_entity_name = True
     _attr_translation_key = "power"
 
     def __init__(
@@ -46,19 +44,8 @@ class SageCoffeePowerSwitch(CoordinatorEntity[SageCoffeeCoordinator], SwitchEnti
         appliance: Any,
     ) -> None:
         """Initialize the switch."""
-        super().__init__(coordinator)
-        self._appliance = appliance
-        self._serial = appliance.serial_number
+        super().__init__(coordinator, appliance)
         self._attr_unique_id = f"{self._serial}_power"
-
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._serial)},
-            name=appliance.name or f"Sage Coffee {self._serial[-4:]}",
-            manufacturer="Sage/Breville",
-            model=appliance.model or "Unknown",
-            serial_number=self._serial,
-        )
 
     @property
     def is_on(self) -> bool | None:
@@ -98,7 +85,3 @@ class SageCoffeePowerSwitch(CoordinatorEntity[SageCoffeeCoordinator], SwitchEnti
             _LOGGER.error("Failed to put coffee machine to sleep: %s", err)
             raise
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self.async_write_ha_state()
