@@ -6,13 +6,11 @@ import logging
 from typing import Any
 
 from homeassistant.components.text import TextEntity
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import DOMAIN, STATE_ASLEEP
+from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,10 +31,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class SageCoffeeApplianceNameText(CoordinatorEntity[SageCoffeeCoordinator], TextEntity):
+class SageCoffeeApplianceNameText(SageCoffeeEntity, TextEntity):
     """Represents the appliance name text input."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "appliance_name"
     _attr_native_max = 20
 
@@ -46,19 +43,8 @@ class SageCoffeeApplianceNameText(CoordinatorEntity[SageCoffeeCoordinator], Text
         appliance: Any,
     ) -> None:
         """Initialize the text entity."""
-        super().__init__(coordinator)
-        self._appliance = appliance
-        self._serial = appliance.serial_number
+        super().__init__(coordinator, appliance)
         self._attr_unique_id = f"{self._serial}_appliance_name"
-
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._serial)},
-            name=appliance.name or f"Sage Coffee {self._serial[-4:]}",
-            manufacturer="Sage/Breville",
-            model=appliance.model or "Unknown",
-            serial_number=self._serial,
-        )
 
     @property
     def native_value(self) -> str | None:

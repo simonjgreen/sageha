@@ -6,14 +6,13 @@ import logging
 from typing import Any
 
 from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.color import brightness_to_value, value_to_brightness
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import DOMAIN, STATE_ASLEEP
+from .const import STATE_ASLEEP
+from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,10 +31,9 @@ async def async_setup_entry(
     )
 
 
-class SageCoffeeWorkLight(CoordinatorEntity[SageCoffeeCoordinator], LightEntity):
+class SageCoffeeWorkLight(SageCoffeeEntity, LightEntity):
     """Represents the work light (cup warmer illumination) on a Sage Coffee machine."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "work_light"
     _attr_color_mode = ColorMode.BRIGHTNESS
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
@@ -46,17 +44,8 @@ class SageCoffeeWorkLight(CoordinatorEntity[SageCoffeeCoordinator], LightEntity)
         appliance: Any,
     ) -> None:
         """Initialize the work light."""
-        super().__init__(coordinator)
-        self._appliance = appliance
-        self._serial = appliance.serial_number
+        super().__init__(coordinator, appliance)
         self._attr_unique_id = f"{self._serial}_work_light"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._serial)},
-            name=appliance.name or f"Sage Coffee {self._serial[-4:]}",
-            manufacturer="Sage/Breville",
-            model=appliance.model or "Unknown",
-            serial_number=self._serial,
-        )
 
     def _api_brightness(self) -> int | None:
         """Return the current work light brightness from the API (0–100), or None."""
@@ -117,7 +106,3 @@ class SageCoffeeWorkLight(CoordinatorEntity[SageCoffeeCoordinator], LightEntity)
             state["work_light_brightness"] = 0
             self.coordinator.async_set_updated_data(self.coordinator.data)
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self.async_write_ha_state()

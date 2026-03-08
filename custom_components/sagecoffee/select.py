@@ -6,13 +6,12 @@ import logging
 from typing import Any
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import DOMAIN, STATE_ASLEEP
+from .const import STATE_ASLEEP
+from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,10 +35,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class SageCoffeeThemeSelect(CoordinatorEntity[SageCoffeeCoordinator], SelectEntity):
+class SageCoffeeThemeSelect(SageCoffeeEntity, SelectEntity):
     """Represents the color theme select."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "color_theme"
     _attr_icon = "mdi:palette"
     _attr_options = AVAILABLE_THEMES
@@ -50,19 +48,8 @@ class SageCoffeeThemeSelect(CoordinatorEntity[SageCoffeeCoordinator], SelectEnti
         appliance: Any,
     ) -> None:
         """Initialize the select entity."""
-        super().__init__(coordinator)
-        self._appliance = appliance
-        self._serial = appliance.serial_number
+        super().__init__(coordinator, appliance)
         self._attr_unique_id = f"{self._serial}_color_theme"
-
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._serial)},
-            name=appliance.name or f"Sage Coffee {self._serial[-4:]}",
-            manufacturer="Sage/Breville",
-            model=appliance.model or "Unknown",
-            serial_number=self._serial,
-        )
 
     @property
     def current_option(self) -> str | None:
