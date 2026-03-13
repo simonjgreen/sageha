@@ -7,10 +7,7 @@ from dataclasses import dataclass
 import logging
 from typing import Any
 
-from homeassistant.components.number import (
-    NumberEntity,
-    NumberEntityDescription,
-)
+from homeassistant.components.number import NumberEntity, NumberEntityDescription
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -118,7 +115,5 @@ class SageCoffeeNumber(SageCoffeeEntity, NumberEntity):
                 self.coordinator.async_set_updated_data(self.coordinator.data)
             self.async_write_ha_state()
         except Exception as err:
-            _LOGGER.error(
-                "Failed to set %s: %s", self.entity_description.key, err
-            )
+            _LOGGER.error("Failed to set %s: %s", self.entity_description.key, err)
             raise

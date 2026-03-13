@@ -35,4 +35,4 @@ SENSOR_VOLUME = "volume"
 SENSOR_AUTO_OFF = "auto_off"
 
 # Platforms
-PLATFORMS = ["switch", "sensor", "text", "select", "number", "light"]
+PLATFORMS = ["light", "number", "select", "sensor", "switch", "text"]

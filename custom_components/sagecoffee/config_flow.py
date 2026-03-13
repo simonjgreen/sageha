@@ -10,8 +10,8 @@ from sagecoffee.auth import DEFAULT_CLIENT_ID, AuthClient
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
