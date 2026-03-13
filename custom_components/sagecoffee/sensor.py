@@ -56,23 +56,30 @@ def _parse_cron_next(
     if days_str == "*":
         allowed = set(range(7))
     else:
-        for part in days_str.split(","):
-            if "-" in part:
-                start, end = part.split("-", 1)
-                for d in range(int(start), int(end) + 1):
-                    allowed.add((d - 1) % 7)
-            else:
-                allowed.add((int(part) - 1) % 7)
+        try:
+            for part in days_str.split(","):
+                if "-" in part:
+                    start, end = part.split("-", 1)
+                    for d in range(int(start), int(end) + 1):
+                        allowed.add((d - 1) % 7)
+                else:
+                    allowed.add((int(part) - 1) % 7)
+        except ValueError:
+            return None
 
     # Walk forward up to 8 days to find the next matching slot
     candidate = after.replace(second=0, microsecond=0)
     for _ in range(8):
         if candidate.weekday() in allowed:
-            scheduled = candidate.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            scheduled = candidate.replace(
+                hour=hour, minute=minute, second=0, microsecond=0
+            )
             if scheduled > after:
                 return scheduled
         next_date = (candidate + timedelta(days=1)).date()
-        candidate = datetime(next_date.year, next_date.month, next_date.day, 0, 0, 0, tzinfo=tz)
+        candidate = datetime(
+            next_date.year, next_date.month, next_date.day, 0, 0, 0, tzinfo=tz
+        )
 
     return None
 
@@ -83,15 +90,20 @@ def _get_next_wake_time(state: dict[str, Any]) -> datetime | None:
     tz_name = state.get("timezone") or "UTC"
     try:
         tz = zoneinfo.ZoneInfo(tz_name)
-    except (zoneinfo.ZoneInfoNotFoundError, KeyError):
+    except zoneinfo.ZoneInfoNotFoundError, KeyError:
         tz = zoneinfo.ZoneInfo("UTC")
 
     now = datetime.now(tz)
     next_wake: datetime | None = None
     for entry in schedules:
+        if not isinstance(entry, dict):
+            continue
         if not entry.get("on"):
             continue
-        dt = _parse_cron_next(entry.get("cron", ""), now, tz)
+        cron = entry.get("cron")
+        if not isinstance(cron, str):
+            continue
+        dt = _parse_cron_next(cron, now, tz)
         if dt is not None and (next_wake is None or dt < next_wake):
             next_wake = dt
 
@@ -210,8 +222,10 @@ async def async_setup_entry(
     entities: list[SageCoffeeSensor] = []
 
     for appliance in coordinator.appliances:
-        for description in SENSOR_DESCRIPTIONS:
-            entities.append(SageCoffeeSensor(coordinator, appliance, description))
+        entities.extend(
+            SageCoffeeSensor(coordinator, appliance, description)
+            for description in SENSOR_DESCRIPTIONS
+        )
 
     async_add_entities(entities)
 
@@ -239,4 +253,3 @@ class SageCoffeeSensor(SageCoffeeEntity, SensorEntity):
         if state is None:
             return None
         return self.entity_description.value_fn(state)
-

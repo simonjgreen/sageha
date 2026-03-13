@@ -5,7 +5,7 @@ set_wake_schedule:
     serial:
       name: Appliance serial
       description: The serial number of the target appliance
-      example: A1BUAESA252503225
+      example: XXXXXXXXXXXXXXXXX
       required: true
       selector:
         text:
@@ -50,7 +50,7 @@ disable_wake_schedule:
     serial:
       name: Appliance serial
       description: The serial number of the target appliance
-      example: A1BUAESA252503225
+      example: XXXXXXXXXXXXXXXXX
       required: true
       selector:
         text:
