@@ -92,6 +92,12 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _update_state_from_device(self, state: Any) -> None:
         """Update internal state from a DeviceState object."""
         serial = state.serial_number
+        raw_schedule = (
+            state.raw_data.get("reported", {})
+            .get("cfg", {})
+            .get("default", {})
+            .get("wake_schedule")
+        )
         self._states[serial] = {
             "reported_state": state.reported_state,
             "desired_state": state.desired_state,
@@ -124,11 +130,9 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             .get("cfg", {})
             .get("default", {})
             .get("timezone"),
-            "wake_schedule": state.raw_data.get("reported", {})
-            .get("cfg", {})
-            .get("default", {})
-            .get("wake_schedule")
-            or [],
+            "wake_schedule": [
+                s for s in raw_schedule if isinstance(s, dict)
+            ] if isinstance(raw_schedule, list) else [],
             "firmware": state.raw_data.get("reported", {}).get("firmware", {}),
         }
 
