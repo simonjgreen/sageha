@@ -56,13 +56,16 @@ def _parse_cron_next(
     if days_str == "*":
         allowed = set(range(7))
     else:
-        for part in days_str.split(","):
-            if "-" in part:
-                start, end = part.split("-", 1)
-                for d in range(int(start), int(end) + 1):
-                    allowed.add((d - 1) % 7)
-            else:
-                allowed.add((int(part) - 1) % 7)
+        try:
+            for part in days_str.split(","):
+                if "-" in part:
+                    start, end = part.split("-", 1)
+                    for d in range(int(start), int(end) + 1):
+                        allowed.add((d - 1) % 7)
+                else:
+                    allowed.add((int(part) - 1) % 7)
+        except ValueError:
+            return None
 
     # Walk forward up to 8 days to find the next matching slot
     candidate = after.replace(second=0, microsecond=0)
@@ -89,9 +92,12 @@ def _get_next_wake_time(state: dict[str, Any]) -> datetime | None:
     now = datetime.now(tz)
     next_wake: datetime | None = None
     for entry in schedules:
-        if not entry.get("on"):
+        if not isinstance(entry, dict) or not entry.get("on"):
             continue
-        dt = _parse_cron_next(entry.get("cron", ""), now, tz)
+        cron = entry.get("cron", "")
+        if not isinstance(cron, str):
+            continue
+        dt = _parse_cron_next(cron, now, tz)
         if dt is not None and (next_wake is None or dt < next_wake):
             next_wake = dt
 
