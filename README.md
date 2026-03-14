@@ -116,7 +116,7 @@ For each coffee machine, the integration creates:
 ```yaml
 action: sagecoffee.set_wake_schedule
 data:
-  serial: A1BUAESA252503225
+  serial: YOUR_SERIAL_NUMBER
   hours: 7
   minutes: 30
   days:
@@ -134,7 +134,7 @@ The `days` field is optional. If omitted, the schedule runs every day. The `enab
 ```yaml
 action: sagecoffee.disable_wake_schedule
 data:
-  serial: A1BUAESA252503225
+  serial: YOUR_SERIAL_NUMBER
 ```
 
 ## Automations
