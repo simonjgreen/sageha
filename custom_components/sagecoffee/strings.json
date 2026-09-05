@@ -81,6 +81,11 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "low_water": {
+        "name": "Low Water"
+      }
+    },
     "light": {
       "work_light": {
         "name": "Work Light"

@@ -12,6 +12,7 @@ Home Assistant custom integration for Sage/Breville connected coffee machines.
 - **Real-time State Monitoring**: See if your machine is ready, warming up, or asleep
 - **Temperature Sensors**: Monitor brew and steam boiler temperatures
 - **Configuration Sensors**: View theme, brightness, grind size, and more
+- **Low-water Fault Sensor**: Detect reported low-water and empty-tank warnings
 - **Wake Schedule**: See when your machine is next scheduled to switch on automatically
 - **Firmware Version**: Check the installed firmware version from the device page
 
@@ -93,6 +94,18 @@ For each coffee machine, the integration creates:
 | ------------------ | --------------------------------- |
 | Display Brightness | Set display brightness percentage |
 | Volume             | Set volume level percentage       |
+
+### Binary Sensors
+
+| Entity    | Description                                         |
+| --------- | --------------------------------------------------- |
+| Low Water | Problem indicator for low-water or empty-tank faults |
+
+Low Water turns on for error code `31102` (low water) or `29120` (empty tank),
+and off when a valid reported error list contains neither code. Missing or
+malformed error data makes the sensor unavailable unless a recognized water
+fault is present. Updates depend on Sage/Breville cloud reports and can be
+delayed. This is not a water-level percentage.
 
 ### Sensors
 

@@ -122,6 +122,11 @@
         "name": "Errors Count"
       }
     },
+    "binary_sensor": {
+      "low_water": {
+        "name": "Low Water"
+      }
+    },
     "switch": {
       "power": {
         "name": "Power"
