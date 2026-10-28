@@ -25,6 +25,15 @@ STATE_ASLEEP = "asleep"
 BOILER_STEAM = 0
 BOILER_BREW = 1
 
+# The Oracle Jet is Wi-Fi/cloud-connected for OTA firmware updates only.
+# It reports a read-only state but does not apply control commands.
+MODEL_JET = "BES985"
+
+
+def is_cloud_controllable(model: str | None) -> bool:
+    """Return False for models that cannot be remotely controlled."""
+    return model != MODEL_JET
+
 # Sensor types
 SENSOR_STATE = "state"
 SENSOR_BREW_TEMP = "brew_temp"

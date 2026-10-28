@@ -20,10 +20,24 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import BOILER_BREW, BOILER_STEAM
+from .const import BOILER_BREW, BOILER_STEAM, MODEL_JET
 from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+# Sensors that don't apply to the Oracle Jet: it has no boiler array and its
+# firmware does not expose a cfg block (Wi-Fi is for OTA updates only).
+JET_EXCLUDED_SENSOR_KEYS = {
+    "brew_temp",
+    "brew_target",
+    "steam_temp",
+    "steam_target",
+    "auto_off",
+    "wake_schedule_next",
+    "wake_schedule",
+    "temperature_unit",
+    "timezone",
+}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -373,6 +387,11 @@ async def async_setup_entry(
 
     for appliance in coordinator.appliances:
         for description in SENSOR_DESCRIPTIONS:
+            if (
+                appliance.model == MODEL_JET
+                and description.key in JET_EXCLUDED_SENSOR_KEYS
+            ):
+                continue
             entities.append(SageCoffeeSensor(coordinator, appliance, description))
 
     async_add_entities(entities)

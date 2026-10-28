@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import STATE_ASLEEP
+from .const import STATE_ASLEEP, is_cloud_controllable
 from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ async def async_setup_entry(
         SageCoffeeNumber(coordinator, appliance, description)
         for appliance in coordinator.appliances
         for description in NUMBER_DESCRIPTIONS
+        if is_cloud_controllable(appliance.model)
     ]
 
     async_add_entities(entities)

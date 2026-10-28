@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import STATE_READY, STATE_WARMING
+from .const import STATE_READY, STATE_WARMING, is_cloud_controllable
 from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +27,7 @@ async def async_setup_entry(
     entities = [
         SageCoffeePowerSwitch(coordinator, appliance)
         for appliance in coordinator.appliances
+        if is_cloud_controllable(appliance.model)
     ]
 
     async_add_entities(entities)

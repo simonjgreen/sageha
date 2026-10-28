@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.color import brightness_to_value, value_to_brightness
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import STATE_ASLEEP
+from .const import STATE_ASLEEP, is_cloud_controllable
 from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ async def async_setup_entry(
     async_add_entities(
         SageCoffeeWorkLight(coordinator, appliance)
         for appliance in coordinator.appliances
+        if is_cloud_controllable(appliance.model)
     )
 
 
