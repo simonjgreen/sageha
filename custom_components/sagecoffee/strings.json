@@ -7,7 +7,8 @@
     "error": {
       "cannot_connect": "Unable to connect to Sage/Breville servers.",
       "invalid_auth": "Invalid authentication. Please check your credentials.",
-      "unknown": "An unexpected error occurred."
+      "unknown": "An unexpected error occurred.",
+      "invalid_mfa_code": "The verification code was not accepted. Please try again."
     },
     "step": {
       "password": {
@@ -17,7 +18,7 @@
           "username": "Email"
         },
         "data_description": {
-          "brand": "Select \"Sage\" if your machine was purchased in Europe, or \"Breville\" for the rest of the world.",
+          "brand": "Select \"Sage\" if your machine was purchased in Europe, \"Breville\" for the rest of the world, or \"Lelit\" for Lelit machines.",
           "username": "The email address associated with your Sage/Breville account.",
           "password": "The password for your Sage/Breville account."
         },
@@ -30,7 +31,7 @@
           "refresh_token": "Refresh Token"
         },
         "data_description": {
-          "brand": "Select \"Sage\" if your machine was purchased in Europe, or \"Breville\" for the rest of the world.",
+          "brand": "Select \"Sage\" if your machine was purchased in Europe, \"Breville\" for the rest of the world, or \"Lelit\" for Lelit machines.",
           "refresh_token": "Paste the refresh token from your sagectl config file."
         },
         "description": "If you already have a refresh token from sagectl, paste it here.\n\nTo get a token, run:\n`{bootstrap_command}`",
@@ -59,7 +60,7 @@
           "username": "Email"
         },
         "data_description": {
-          "brand": "Select \"Sage\" if your machine was purchased in Europe, or \"Breville\" for the rest of the world.",
+          "brand": "Select \"Sage\" if your machine was purchased in Europe, \"Breville\" for the rest of the world, or \"Lelit\" for Lelit machines.",
           "username": "The email address associated with your Sage/Breville account.",
           "password": "The password for your Sage/Breville account."
         },
@@ -72,11 +73,18 @@
           "refresh_token": "Refresh Token"
         },
         "data_description": {
-          "brand": "Select \"Sage\" if your machine was purchased in Europe, or \"Breville\" for the rest of the world.",
+          "brand": "Select \"Sage\" if your machine was purchased in Europe, \"Breville\" for the rest of the world, or \"Lelit\" for Lelit machines.",
           "refresh_token": "Paste the refresh token from your sagectl config file."
         },
         "description": "If you already have a refresh token from sagectl, paste it here.\n\nTo get a token, run:\n`{bootstrap_command}`",
         "title": "Re-authenticate Sage Coffee"
+      },
+      "mfa": {
+        "title": "Two-step verification",
+        "description": "Your account has two-step verification enabled. Enter the code from your authenticator app.",
+        "data": {
+          "otp": "Verification code"
+        }
       }
     }
   },
@@ -156,6 +164,9 @@
       },
       "errors_count": {
         "name": "Errors Count"
+      },
+      "signal_strength": {
+        "name": "Wi-Fi Signal Strength"
       }
     },
     "switch": {

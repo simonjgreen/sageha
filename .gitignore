@@ -41,3 +41,6 @@ htmlcov/
 # Home Assistant
 *.log
 home-assistant.log*
+
+# Vendor app packages used for protocol comparison
+apk/

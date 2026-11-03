@@ -60,6 +60,7 @@ WELL_FORMED_REPORTED = {
     "pairing": {"remote_wake": True, "last_paired": 1755100800},
     "firmware": {"appVersion": "2.0.1"},
     "errors": [],
+    "signal_strength": -55,
 }
 
 
@@ -93,6 +94,7 @@ async def test_well_formed_payload_maps_all_keys(hass: HomeAssistant) -> None:
         "wake_schedule": [{"cron": "30 6 * * *", "on": True}],
         "firmware": {"appVersion": "2.0.1"},
         "errors": [],
+        "signal_strength": -55,
     }
 
 

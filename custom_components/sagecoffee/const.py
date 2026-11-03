@@ -12,6 +12,14 @@ CONF_MACHINE_TYPE_LEGACY = "machine_type"
 # Machine type values
 MACHINE_TYPE_SAGE = "sageCoffee"
 MACHINE_TYPE_BREVILLE = "brevilleCoffee"
+MACHINE_TYPE_LELIT = "lelitCoffee"
+
+# Brand choices offered in the config flow
+BRAND_OPTIONS = [
+    {"label": "Sage", "value": MACHINE_TYPE_SAGE},
+    {"label": "Breville", "value": MACHINE_TYPE_BREVILLE},
+    {"label": "Lelit", "value": MACHINE_TYPE_LELIT},
+]
 
 # Defaults
 DEFAULT_NAME = "Sage Coffee"
@@ -21,7 +29,8 @@ STATE_READY = "ready"
 STATE_WARMING = "warming"
 STATE_ASLEEP = "asleep"
 
-# Boiler IDs (from BES995 Oracle Dual Boiler)
+# Boiler IDs (from BES995 Oracle Dual Boiler). Machines that report a single
+# boiler only have a brew boiler, reported at index 0.
 BOILER_STEAM = 0
 BOILER_BREW = 1
 

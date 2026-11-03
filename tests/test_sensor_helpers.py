@@ -5,12 +5,14 @@ import zoneinfo
 
 import pytest
 
+from custom_components.sagecoffee.const import BOILER_BREW, BOILER_STEAM
 from custom_components.sagecoffee.sensor import (
     _format_remote_wake,
     _format_temperature_unit,
     _format_wake_schedule,
     _get_boiler_target,
     _get_boiler_temp,
+    _get_errors_attributes,
     _get_errors_count,
     _get_last_paired,
     _get_next_wake_time,
@@ -102,16 +104,38 @@ class TestGetNextWakeTime:
 
 
 class TestBoilerLookup:
-    STATE = {"boiler_temps": [{"id": "0", "cur_temp": 135.0, "temp_sp": 135.5}]}
+    STATE = {
+        "boiler_temps": [
+            {"id": "0", "cur_temp": 135.0, "temp_sp": 135.5},
+            {"id": "1", "cur_temp": 93.0, "temp_sp": 93.5},
+        ]
+    }
 
     def test_matches_int_id_against_string_id(self) -> None:
         # The library reports string IDs; lookups use int constants.
-        assert _get_boiler_temp(self.STATE, 0) == 135.0
-        assert _get_boiler_target(self.STATE, 0) == 135.5
+        assert _get_boiler_temp(self.STATE, BOILER_STEAM) == 135.0
+        assert _get_boiler_target(self.STATE, BOILER_STEAM) == 135.5
+        assert _get_boiler_temp(self.STATE, BOILER_BREW) == 93.0
 
     def test_unknown_boiler_returns_none(self) -> None:
-        assert _get_boiler_temp(self.STATE, 1) is None
-        assert _get_boiler_target(self.STATE, 1) is None
+        assert _get_boiler_temp(self.STATE, 2) is None
+        assert _get_boiler_target(self.STATE, 2) is None
+
+    def test_single_boiler_is_the_brew_boiler(self) -> None:
+        state = {"boiler_temps": [{"id": "0", "cur_temp": 92.0, "temp_sp": 93.0}]}
+        assert _get_boiler_temp(state, BOILER_BREW) == 92.0
+        assert _get_boiler_target(state, BOILER_BREW) == 93.0
+        assert _get_boiler_temp(state, BOILER_STEAM) is None
+        assert _get_boiler_target(state, BOILER_STEAM) is None
+
+
+class TestErrorsAttributes:
+    def test_lists_reported_errors(self) -> None:
+        state = {"errors": ["WaterTankEmpty"]}
+        assert _get_errors_attributes(state) == {"errors": ["WaterTankEmpty"]}
+
+    def test_missing_errors_is_empty_list(self) -> None:
+        assert _get_errors_attributes({}) == {"errors": []}
 
 
 class TestGetLastPaired:

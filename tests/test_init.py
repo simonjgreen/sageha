@@ -1,5 +1,6 @@
 """Tests for integration setup, config entry migration, and services."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -53,6 +54,46 @@ async def test_setup_and_unload(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.NOT_LOADED
     mock_client.__aexit__.assert_awaited()
+
+
+def make_device_state(boiler_count: int) -> SimpleNamespace:
+    """A device state as returned by the sagecoffee client."""
+    return SimpleNamespace(
+        serial_number=MOCK_SERIAL,
+        raw_data={"reported": {"state": "ready"}},
+        reported_state="ready",
+        desired_state="ready",
+        version=1,
+        boiler_temps=[
+            SimpleNamespace(id=str(i), current_temp=90.0, target_temp=93.0)
+            for i in range(boiler_count)
+        ],
+        grind_size=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("boiler_count", "has_steam_sensors"), [(1, False), (2, True)]
+)
+async def test_steam_sensors_only_for_dual_boiler_machines(
+    hass: HomeAssistant,
+    mock_client: MagicMock,
+    config_entry: MockConfigEntry,
+    boiler_count: int,
+    has_steam_sensors: bool,
+) -> None:
+    """Single-boiler machines have no steam boiler, so get no steam sensors."""
+    mock_client.get_last_state.return_value = make_device_state(boiler_count)
+    assert await setup_entry(hass, config_entry)
+
+    registry = er.async_get(hass)
+    unique_ids = {
+        e.unique_id
+        for e in er.async_entries_for_config_entry(registry, config_entry.entry_id)
+    }
+    assert f"{MOCK_SERIAL}_brew_temp" in unique_ids
+    assert (f"{MOCK_SERIAL}_steam_temp" in unique_ids) is has_steam_sensors
+    assert (f"{MOCK_SERIAL}_steam_target" in unique_ids) is has_steam_sensors
 
 
 async def test_setup_without_refresh_token_starts_reauth(
@@ -177,8 +218,9 @@ async def test_set_wake_schedule_builds_cron(
         blocking=True,
     )
 
-    mock_client.set_wake_schedule.assert_awaited_once_with(
-        cron="30 6 * * 1,6,7", enabled=True, serial=MOCK_SERIAL
+    mock_client.set_coffee_params.assert_awaited_once_with(
+        {"cfg": {"wake_schedule": [{"cron": "30 6 * * 1,6,7", "on": True}]}},
+        serial=MOCK_SERIAL,
     )
 
 
@@ -195,9 +237,72 @@ async def test_set_wake_schedule_without_days_means_every_day(
         blocking=True,
     )
 
-    mock_client.set_wake_schedule.assert_awaited_once_with(
-        cron="0 7 * * *", enabled=False, serial=MOCK_SERIAL
+    mock_client.set_coffee_params.assert_awaited_once_with(
+        {"cfg": {"wake_schedule": [{"cron": "0 7 * * *", "on": False}]}},
+        serial=MOCK_SERIAL,
     )
+
+
+async def test_set_wake_schedule_keeps_existing_schedules(
+    hass: HomeAssistant, mock_client: MagicMock, config_entry: MockConfigEntry
+) -> None:
+    """Schedules created in the app are kept and a new one is appended."""
+    assert await setup_entry(hass, config_entry)
+
+    coordinator = config_entry.runtime_data
+    coordinator._states[MOCK_SERIAL] = {
+        "wake_schedule": [{"cron": "0 8 * * 6,7", "on": True, "d": 1}]
+    }
+
+    await hass.services.async_call(
+        DOMAIN,
+        "set_wake_schedule",
+        {"serial": MOCK_SERIAL, "hours": 6, "minutes": 30, "days": ["mon"]},
+        blocking=True,
+    )
+
+    mock_client.set_coffee_params.assert_awaited_once_with(
+        {
+            "cfg": {
+                "wake_schedule": [
+                    {"cron": "0 8 * * 6,7", "on": True, "d": 1},
+                    {"cron": "30 6 * * 1", "on": True},
+                ]
+            }
+        },
+        serial=MOCK_SERIAL,
+    )
+
+
+async def test_set_wake_schedule_updates_matching_schedule(
+    hass: HomeAssistant, mock_client: MagicMock, config_entry: MockConfigEntry
+) -> None:
+    """A schedule with the same cron is toggled in place, not duplicated."""
+    assert await setup_entry(hass, config_entry)
+
+    coordinator = config_entry.runtime_data
+    existing = {"cron": "30 6 * * 1", "on": True, "d": 1}
+    coordinator._states[MOCK_SERIAL] = {"wake_schedule": [existing]}
+
+    await hass.services.async_call(
+        DOMAIN,
+        "set_wake_schedule",
+        {
+            "serial": MOCK_SERIAL,
+            "hours": 6,
+            "minutes": 30,
+            "days": ["mon"],
+            "enabled": False,
+        },
+        blocking=True,
+    )
+
+    mock_client.set_coffee_params.assert_awaited_once_with(
+        {"cfg": {"wake_schedule": [{"cron": "30 6 * * 1", "on": False, "d": 1}]}},
+        serial=MOCK_SERIAL,
+    )
+    # The cached state is not mutated before the device confirms the change.
+    assert existing["on"] is True
 
 
 async def test_set_wake_schedule_unknown_serial(
@@ -213,7 +318,7 @@ async def test_set_wake_schedule_unknown_serial(
             {"serial": "NOPE", "hours": 6, "minutes": 30},
             blocking=True,
         )
-    mock_client.set_wake_schedule.assert_not_awaited()
+    mock_client.set_coffee_params.assert_not_awaited()
 
 
 async def test_disable_wake_schedule_preserves_entries(

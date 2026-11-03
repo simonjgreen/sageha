@@ -139,6 +139,7 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ] if isinstance(raw_schedule, list) else [],
             "firmware": reported.get("firmware", {}),
             "errors": reported.get("errors"),
+            "signal_strength": reported.get("signal_strength"),
         }
 
     async def async_start_websocket(self) -> None:
@@ -261,9 +262,20 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                 days_of_week = "*"
             cron = f"{minutes} {hours} * * {days_of_week}"
 
-            await coordinator.client.set_wake_schedule(
-                cron=cron,
-                enabled=enabled,
+            # The app manages a list of schedules, so merge into the known
+            # entries rather than replacing them: an entry with the same cron
+            # is updated in place, anything else is appended.
+            state = coordinator.get_state(serial) or {}
+            schedule = [dict(s) for s in state.get("wake_schedule") or []]
+            for existing in schedule:
+                if existing.get("cron") == cron:
+                    existing["on"] = enabled
+                    break
+            else:
+                schedule.append({"cron": cron, "on": enabled})
+
+            await coordinator.client.set_coffee_params(
+                {"cfg": {"wake_schedule": schedule}},
                 serial=serial,
             )
         except Exception as err:
