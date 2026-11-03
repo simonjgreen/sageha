@@ -9,6 +9,8 @@ import logging
 from typing import Any
 import zoneinfo
 
+from sagecoffee.models import BOILER_ROLE_BREW, BOILER_ROLE_STEAM
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -20,7 +22,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import BOILER_BREW, BOILER_STEAM
 from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -106,37 +107,23 @@ def _get_next_wake_time(state: dict[str, Any]) -> datetime | None:
     return next_wake
 
 
-def _is_single_boiler(state: dict[str, Any]) -> bool:
-    """Return True if the machine reports exactly one boiler."""
-    return len(state.get("boiler_temps") or []) == 1
-
-
-def _find_boiler(state: dict[str, Any], boiler_id: int | str) -> dict[str, Any] | None:
-    """Find a boiler by its dual-boiler ID.
-
-    Single-boiler machines report only their brew boiler, at index 0, so the
-    brew lookup is redirected there and there is no steam boiler.
-    """
-    if _is_single_boiler(state):
-        if str(boiler_id) != str(BOILER_BREW):
-            return None
-        boiler_id = 0
-    for boiler in state.get("boiler_temps", []):
-        # Compare as strings since library returns string IDs
-        if str(boiler.get("id")) == str(boiler_id):
+def _find_boiler(state: dict[str, Any], role: str) -> dict[str, Any] | None:
+    """Find a boiler by its role ("brew" or "steam")."""
+    for boiler in state.get("boiler_temps") or []:
+        if boiler.get("role") == role:
             return boiler
     return None
 
 
-def _get_boiler_temp(state: dict[str, Any], boiler_id: int | str) -> float | None:
+def _get_boiler_temp(state: dict[str, Any], role: str) -> float | None:
     """Get current temperature for a boiler."""
-    boiler = _find_boiler(state, boiler_id)
+    boiler = _find_boiler(state, role)
     return boiler.get("cur_temp") if boiler else None
 
 
-def _get_boiler_target(state: dict[str, Any], boiler_id: int | str) -> float | None:
+def _get_boiler_target(state: dict[str, Any], role: str) -> float | None:
     """Get target temperature for a boiler."""
-    boiler = _find_boiler(state, boiler_id)
+    boiler = _find_boiler(state, role)
     return boiler.get("temp_sp") if boiler else None
 
 
@@ -226,7 +213,7 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_temp(state, BOILER_BREW),
+        value_fn=lambda state: _get_boiler_temp(state, BOILER_ROLE_BREW),
     ),
     SageCoffeeSensorEntityDescription(
         key="brew_target",
@@ -235,7 +222,7 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_target(state, BOILER_BREW),
+        value_fn=lambda state: _get_boiler_target(state, BOILER_ROLE_BREW),
     ),
     SageCoffeeSensorEntityDescription(
         key="steam_temp",
@@ -246,7 +233,7 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_temp(state, BOILER_STEAM),
+        value_fn=lambda state: _get_boiler_temp(state, BOILER_ROLE_STEAM),
     ),
     SageCoffeeSensorEntityDescription(
         key="steam_target",
@@ -256,7 +243,7 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_target(state, BOILER_STEAM),
+        value_fn=lambda state: _get_boiler_target(state, BOILER_ROLE_STEAM),
     ),
     SageCoffeeSensorEntityDescription(
         key="grind_size",
@@ -408,7 +395,7 @@ async def async_setup_entry(
 
     for appliance in coordinator.appliances:
         state = coordinator.get_state(appliance.serial_number) or {}
-        single_boiler = _is_single_boiler(state)
+        single_boiler = bool(state.get("single_boiler"))
         for description in SENSOR_DESCRIPTIONS:
             if description.steam_boiler and single_boiler:
                 continue

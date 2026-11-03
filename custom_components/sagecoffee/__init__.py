@@ -99,18 +99,11 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _update_state_from_device(self, state: Any) -> None:
         """Update internal state from a DeviceState object."""
         serial = state.serial_number
-        reported = state.raw_data.get("reported", {})
-        cfg_default = reported.get("cfg", {}).get("default", {})
-        if not isinstance(cfg_default, dict):
-            cfg_default = {}
-        if not cfg_default:
-            cfg_default = reported.get("cfg.default", {})
-            if not isinstance(cfg_default, dict):
-                cfg_default = {}
+        reported = state.reported
+        cfg_default = state.cfg_default
         pairing = reported.get("pairing", {})
         if not isinstance(pairing, dict):
             pairing = {}
-        raw_schedule = cfg_default.get("wake_schedule")
         self._states[serial] = {
             "reported_state": state.reported_state,
             "desired_state": state.desired_state,
@@ -118,9 +111,15 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "reported_version": reported.get("version"),
             "model": reported.get("model"),
             "boiler_temps": [
-                {"id": b.id, "cur_temp": b.current_temp, "temp_sp": b.target_temp}
-                for b in (state.boiler_temps or [])
+                {
+                    "id": b.id,
+                    "role": b.role,
+                    "cur_temp": b.current_temp,
+                    "temp_sp": b.target_temp,
+                }
+                for b in state.boiler_temps
             ],
+            "single_boiler": state.is_single_boiler,
             "grind_size": state.grind_size,
             "theme": cfg_default.get("theme"),
             "brightness": cfg_default.get("brightness"),
@@ -133,13 +132,11 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "remote_wake", cfg_default.get("remote_wake_enable")
             ),
             "last_paired": pairing.get("last_paired"),
-            "wake_schedule_raw": raw_schedule,
-            "wake_schedule": [
-                s for s in raw_schedule if isinstance(s, dict)
-            ] if isinstance(raw_schedule, list) else [],
-            "firmware": reported.get("firmware", {}),
-            "errors": reported.get("errors"),
-            "signal_strength": reported.get("signal_strength"),
+            "wake_schedule_raw": cfg_default.get("wake_schedule"),
+            "wake_schedule": state.wake_schedule,
+            "firmware": state.firmware,
+            "errors": state.errors,
+            "signal_strength": state.signal_strength,
         }
 
     async def async_start_websocket(self) -> None:
@@ -262,20 +259,11 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                 days_of_week = "*"
             cron = f"{minutes} {hours} * * {days_of_week}"
 
-            # The app manages a list of schedules, so merge into the known
-            # entries rather than replacing them: an entry with the same cron
-            # is updated in place, anything else is appended.
-            state = coordinator.get_state(serial) or {}
-            schedule = [dict(s) for s in state.get("wake_schedule") or []]
-            for existing in schedule:
-                if existing.get("cron") == cron:
-                    existing["on"] = enabled
-                    break
-            else:
-                schedule.append({"cron": cron, "on": enabled})
-
-            await coordinator.client.set_coffee_params(
-                {"cfg": {"wake_schedule": schedule}},
+            # Merges into the appliance's existing schedules: one with the
+            # same cron is updated, anything else is appended.
+            await coordinator.client.set_wake_schedule(
+                cron=cron,
+                enabled=enabled,
                 serial=serial,
             )
         except Exception as err:
@@ -303,19 +291,9 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         coordinator = entry.runtime_data
 
         try:
-            # The device silently ignores an empty wake_schedule list, so the
-            # schedule can't be cleared outright. Instead, preserve the known
-            # entries and flip each one's "on" flag to False.
-            state = coordinator.get_state(serial) or {}
-            current_schedule = state.get("wake_schedule") or []
-            if current_schedule:
-                disabled_schedule = [
-                    {**s, "on": False} for s in current_schedule
-                ]
-                await coordinator.client.set_coffee_params(
-                    {"cfg": {"wake_schedule": disabled_schedule}},
-                    serial=serial,
-                )
+            # Turns every schedule off but keeps it, since the device ignores
+            # an empty wake_schedule list.
+            await coordinator.client.disable_wake_schedule(serial=serial)
         except Exception as err:
             raise HomeAssistantError(f"Failed to disable wake schedule: {err}") from err
 

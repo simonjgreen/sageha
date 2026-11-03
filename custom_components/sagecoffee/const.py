@@ -1,5 +1,7 @@
 """Constants for the Sage Coffee integration."""
 
+from sagecoffee import APP_BREVILLE, APP_LELIT, APP_SAGE
+
 DOMAIN = "sagecoffee"
 
 # Configuration keys
@@ -9,10 +11,10 @@ CONF_BRAND = "brand"
 # Legacy configuration keys (migrated on setup)
 CONF_MACHINE_TYPE_LEGACY = "machine_type"
 
-# Machine type values
-MACHINE_TYPE_SAGE = "sageCoffee"
-MACHINE_TYPE_BREVILLE = "brevilleCoffee"
-MACHINE_TYPE_LELIT = "lelitCoffee"
+# Machine type values (the brand's app identifier)
+MACHINE_TYPE_SAGE = APP_SAGE
+MACHINE_TYPE_BREVILLE = APP_BREVILLE
+MACHINE_TYPE_LELIT = APP_LELIT
 
 # Brand choices offered in the config flow
 BRAND_OPTIONS = [
@@ -28,11 +30,6 @@ DEFAULT_NAME = "Sage Coffee"
 STATE_READY = "ready"
 STATE_WARMING = "warming"
 STATE_ASLEEP = "asleep"
-
-# Boiler IDs (from BES995 Oracle Dual Boiler). Machines that report a single
-# boiler only have a brew boiler, reported at index 0.
-BOILER_STEAM = 0
-BOILER_BREW = 1
 
 # Sensor types
 SENSOR_STATE = "state"

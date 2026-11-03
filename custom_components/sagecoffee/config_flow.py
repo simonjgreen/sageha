@@ -7,14 +7,13 @@ import logging
 from typing import Any
 
 import httpx
-from sagecoffee.auth import DEFAULT_CLIENT_ID, OAUTH_TOKEN_URL, AuthClient
+from sagecoffee.auth import DEFAULT_CLIENT_ID, AuthClient, MfaRequiredError
 from sagecoffee.models import TokenSet
 import voluptuous as vol
 
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigFlow, ConfigFlowResult
 from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.httpx_client import get_async_client
 from homeassistant.helpers.selector import (
     SelectSelector,
@@ -67,49 +66,6 @@ CONF_OTP = "otp"
 
 STEP_MFA_DATA_SCHEMA = vol.Schema({vol.Required(CONF_OTP): str})
 
-MFA_OTP_GRANT_TYPE = "http://auth0.com/oauth/grant-type/mfa-otp"
-
-
-def _mfa_token_from_error(err: Exception) -> str | None:
-    """Return the MFA token if a login failed only because MFA is required."""
-    if not isinstance(err, httpx.HTTPStatusError):
-        return None
-    try:
-        body = err.response.json()
-    except ValueError:
-        return None
-    if isinstance(body, dict) and body.get("error") == "mfa_required":
-        return body.get("mfa_token")
-    return None
-
-
-async def _async_mfa_otp_login(
-    hass: HomeAssistant, mfa_token: str, otp: str
-) -> TokenSet:
-    """Complete an MFA-protected login with a one-time code."""
-    client = get_async_client(hass)
-    response = await client.post(
-        OAUTH_TOKEN_URL,
-        data={
-            "grant_type": MFA_OTP_GRANT_TYPE,
-            "client_id": DEFAULT_CLIENT_ID,
-            "mfa_token": mfa_token,
-            "otp": otp,
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
-    response.raise_for_status()
-    data = response.json()
-    return TokenSet(
-        access_token=data.get("access_token"),
-        id_token=data.get("id_token"),
-        refresh_token=data.get("refresh_token"),
-        expires_in=data.get("expires_in", 86400),
-        token_type=data.get("token_type", "Bearer"),
-        scope=data.get("scope"),
-    )
-
-
 class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Sage Coffee."""
 
@@ -149,11 +105,11 @@ class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
 
             except AbortFlow:
                 raise
+            except MfaRequiredError as err:
+                self._mfa_token = err.mfa_token
+                self._mfa_brand = user_input[CONF_BRAND]
+                return await self.async_step_mfa()
             except Exception as err:
-                if mfa_token := _mfa_token_from_error(err):
-                    self._mfa_token = mfa_token
-                    self._mfa_brand = user_input[CONF_BRAND]
-                    return await self.async_step_mfa()
                 _LOGGER.exception("Authentication failed: %s", err)
                 errors["base"] = "invalid_auth"
 
@@ -171,8 +127,12 @@ class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
-                tokens = await _async_mfa_otp_login(
-                    self.hass, self._mfa_token, user_input[CONF_OTP].strip()
+                auth_client = AuthClient(
+                    client_id=DEFAULT_CLIENT_ID,
+                    http_client=get_async_client(self.hass),
+                )
+                tokens = await auth_client.mfa_otp_login(
+                    self._mfa_token, user_input[CONF_OTP]
                 )
                 return await self._async_finish_password_login(
                     tokens, self._mfa_brand
@@ -294,11 +254,11 @@ class SageCoffeeConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except AbortFlow:
                 raise
+            except MfaRequiredError as err:
+                self._mfa_token = err.mfa_token
+                self._mfa_brand = user_input[CONF_BRAND]
+                return await self.async_step_mfa()
             except Exception as err:
-                if mfa_token := _mfa_token_from_error(err):
-                    self._mfa_token = mfa_token
-                    self._mfa_brand = user_input[CONF_BRAND]
-                    return await self.async_step_mfa()
                 _LOGGER.exception("Re-authentication failed: %s", err)
                 errors["base"] = "invalid_auth"
 

@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 import zoneinfo
 
 import pytest
+from sagecoffee.models import BOILER_ROLE_BREW, BOILER_ROLE_STEAM
 
-from custom_components.sagecoffee.const import BOILER_BREW, BOILER_STEAM
 from custom_components.sagecoffee.sensor import (
     _format_remote_wake,
     _format_temperature_unit,
@@ -106,27 +106,28 @@ class TestGetNextWakeTime:
 class TestBoilerLookup:
     STATE = {
         "boiler_temps": [
-            {"id": "0", "cur_temp": 135.0, "temp_sp": 135.5},
-            {"id": "1", "cur_temp": 93.0, "temp_sp": 93.5},
+            {"id": "0", "role": "steam", "cur_temp": 135.0, "temp_sp": 135.5},
+            {"id": "1", "role": "brew", "cur_temp": 93.0, "temp_sp": 93.5},
         ]
     }
 
-    def test_matches_int_id_against_string_id(self) -> None:
-        # The library reports string IDs; lookups use int constants.
-        assert _get_boiler_temp(self.STATE, BOILER_STEAM) == 135.0
-        assert _get_boiler_target(self.STATE, BOILER_STEAM) == 135.5
-        assert _get_boiler_temp(self.STATE, BOILER_BREW) == 93.0
+    def test_looks_up_by_role(self) -> None:
+        assert _get_boiler_temp(self.STATE, BOILER_ROLE_STEAM) == 135.0
+        assert _get_boiler_target(self.STATE, BOILER_ROLE_STEAM) == 135.5
+        assert _get_boiler_temp(self.STATE, BOILER_ROLE_BREW) == 93.0
 
-    def test_unknown_boiler_returns_none(self) -> None:
-        assert _get_boiler_temp(self.STATE, 2) is None
-        assert _get_boiler_target(self.STATE, 2) is None
+    def test_unknown_role_returns_none(self) -> None:
+        assert _get_boiler_temp(self.STATE, "other") is None
+        assert _get_boiler_target(self.STATE, "other") is None
 
-    def test_single_boiler_is_the_brew_boiler(self) -> None:
-        state = {"boiler_temps": [{"id": "0", "cur_temp": 92.0, "temp_sp": 93.0}]}
-        assert _get_boiler_temp(state, BOILER_BREW) == 92.0
-        assert _get_boiler_target(state, BOILER_BREW) == 93.0
-        assert _get_boiler_temp(state, BOILER_STEAM) is None
-        assert _get_boiler_target(state, BOILER_STEAM) is None
+    def test_single_boiler_has_no_steam_boiler(self) -> None:
+        state = {
+            "boiler_temps": [{"id": "0", "role": "brew", "cur_temp": 92.0, "temp_sp": 93.0}]
+        }
+        assert _get_boiler_temp(state, BOILER_ROLE_BREW) == 92.0
+        assert _get_boiler_target(state, BOILER_ROLE_BREW) == 93.0
+        assert _get_boiler_temp(state, BOILER_ROLE_STEAM) is None
+        assert _get_boiler_target(state, BOILER_ROLE_STEAM) is None
 
 
 class TestErrorsAttributes:

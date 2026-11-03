@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from sagecoffee.auth import MfaRequiredError
 
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
@@ -340,25 +341,18 @@ async def test_reauth_token_failure_shows_error(
     assert existing_entry.data[CONF_REFRESH_TOKEN] == "expired-token"
 
 
-def mfa_required_error() -> httpx.HTTPStatusError:
-    """The error Auth0 returns when a password login needs a second factor."""
-    request = httpx.Request("POST", "https://my.breville.com/oauth/token")
-    response = httpx.Response(
-        403,
-        json={"error": "mfa_required", "mfa_token": "mock-mfa-token"},
-        request=request,
-    )
-    return httpx.HTTPStatusError("403", request=request, response=response)
+def mfa_required_error() -> MfaRequiredError:
+    """The error the library raises when a password login needs a second factor."""
+    return MfaRequiredError("mock-mfa-token")
 
 
 @pytest.fixture
-def mock_mfa_login(mock_tokens: MagicMock) -> Generator[AsyncMock]:
-    """Patch the one-time-code exchange."""
-    with patch(
-        "custom_components.sagecoffee.config_flow._async_mfa_otp_login",
-        return_value=mock_tokens,
-    ) as mock:
-        yield mock
+def mock_mfa_login(
+    mock_auth_client: MagicMock, mock_tokens: MagicMock
+) -> AsyncMock:
+    """The one-time-code exchange on the patched AuthClient."""
+    mock_auth_client.mfa_otp_login = AsyncMock(return_value=mock_tokens)
+    return mock_auth_client.mfa_otp_login
 
 
 async def test_password_flow_with_mfa_creates_entry(
@@ -392,7 +386,7 @@ async def test_password_flow_with_mfa_creates_entry(
         CONF_BRAND: MACHINE_TYPE_SAGE,
     }
     assert result["result"].unique_id == MOCK_AUTH0_SUB
-    mock_mfa_login.assert_awaited_once_with(hass, "mock-mfa-token", "123456")
+    mock_mfa_login.assert_awaited_once_with("mock-mfa-token", " 123456 ")
 
 
 async def test_mfa_wrong_code_shows_error(
@@ -509,28 +503,3 @@ async def test_password_flow_accepts_lelit_brand(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_BRAND] == MACHINE_TYPE_LELIT
-
-
-async def test_mfa_otp_login_exchanges_code(hass: HomeAssistant) -> None:
-    """The one-time code is exchanged for tokens with Auth0's mfa-otp grant."""
-    from custom_components.sagecoffee.config_flow import _async_mfa_otp_login
-
-    client = MagicMock()
-    client.post = AsyncMock(
-        return_value=httpx.Response(
-            200,
-            json={"id_token": "id", "refresh_token": "refresh"},
-            request=httpx.Request("POST", "https://my.breville.com/oauth/token"),
-        )
-    )
-    with patch(
-        "custom_components.sagecoffee.config_flow.get_async_client",
-        return_value=client,
-    ):
-        tokens = await _async_mfa_otp_login(hass, "mfa-token", "123456")
-
-    assert tokens.refresh_token == "refresh"
-    sent = client.post.await_args.kwargs["data"]
-    assert sent["grant_type"] == "http://auth0.com/oauth/grant-type/mfa-otp"
-    assert sent["mfa_token"] == "mfa-token"
-    assert sent["otp"] == "123456"

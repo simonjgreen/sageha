@@ -5,12 +5,12 @@ so `_update_state_from_device` is exercised against the messy shapes the
 device is known to send.
 """
 
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
 import httpx
 import pytest
+from sagecoffee.models import DeviceState
 
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -28,18 +28,16 @@ def make_coordinator(hass: HomeAssistant) -> SageCoffeeCoordinator:
     return SageCoffeeCoordinator(hass, MagicMock(), [], entry)
 
 
-def make_device_state(reported: dict[str, Any], **overrides: Any) -> SimpleNamespace:
-    """Build a DeviceState-shaped object with the given reported payload."""
-    defaults = {
-        "serial_number": MOCK_SERIAL,
-        "raw_data": {"reported": reported},
-        "reported_state": "ready",
-        "desired_state": "ready",
-        "version": 7,
-        "boiler_temps": [],
-        "grind_size": 15,
-    }
-    return SimpleNamespace(**{**defaults, **overrides})
+def make_device_state(reported: dict[str, Any]) -> DeviceState:
+    """Build a DeviceState with the given reported payload."""
+    return DeviceState(
+        raw_data={
+            "reported": {"state": "ready", "grind.size_setting": 15, **reported},
+            "desired": {"state": "ready"},
+        },
+        serial_number=MOCK_SERIAL,
+        version=7,
+    )
 
 
 WELL_FORMED_REPORTED = {
@@ -67,8 +65,8 @@ WELL_FORMED_REPORTED = {
 async def test_well_formed_payload_maps_all_keys(hass: HomeAssistant) -> None:
     """A well-formed payload is mapped to the state dict every entity reads."""
     coordinator = make_coordinator(hass)
-    boiler = SimpleNamespace(id="1", current_temp=93.0, target_temp=93.5)
-    state = make_device_state(WELL_FORMED_REPORTED, boiler_temps=[boiler])
+    boiler = {"cur_temp": 93.0, "temp_sp": 93.5}
+    state = make_device_state({**WELL_FORMED_REPORTED, "boiler": [boiler]})
 
     coordinator._update_state_from_device(state)
 
@@ -79,7 +77,10 @@ async def test_well_formed_payload_maps_all_keys(hass: HomeAssistant) -> None:
         "state_report_version": 7,
         "reported_version": "1.2.3",
         "model": "BES995",
-        "boiler_temps": [{"id": "1", "cur_temp": 93.0, "temp_sp": 93.5}],
+        "boiler_temps": [
+            {"id": "0", "role": "brew", "cur_temp": 93.0, "temp_sp": 93.5}
+        ],
+        "single_boiler": True,
         "grind_size": 15,
         "theme": "dark",
         "brightness": 80,
@@ -180,9 +181,9 @@ async def test_remote_wake_falls_back_to_cfg_default(hass: HomeAssistant) -> Non
 
 
 async def test_none_boiler_temps_does_not_crash(hass: HomeAssistant) -> None:
-    """boiler_temps being None yields an empty list."""
+    """A null boiler list yields an empty list."""
     coordinator = make_coordinator(hass)
-    state = make_device_state({}, boiler_temps=None)
+    state = make_device_state({"boiler": None})
 
     coordinator._update_state_from_device(state)
 
@@ -225,3 +226,17 @@ async def test_none_boiler_temps_does_not_crash(hass: HomeAssistant) -> None:
 def test_is_auth_error(err: Exception, expected: bool) -> None:
     """Auth errors trigger reauth; anything else must not."""
     assert _is_auth_error(err) is expected
+
+
+async def test_dual_boiler_roles(hass: HomeAssistant) -> None:
+    """Dual boiler machines report steam at index 0 and brew at index 1."""
+    coordinator = make_coordinator(hass)
+    state = make_device_state(
+        {"boiler": [{"cur_temp": 135.0, "temp_sp": 135.5}, {"cur_temp": 93.0}]}
+    )
+
+    coordinator._update_state_from_device(state)
+
+    parsed = coordinator.get_state(MOCK_SERIAL)
+    assert [b["role"] for b in parsed["boiler_temps"]] == ["steam", "brew"]
+    assert parsed["single_boiler"] is False
