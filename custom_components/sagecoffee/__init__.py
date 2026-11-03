@@ -36,6 +36,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Delay before restarting a failed state stream, doubled up to the maximum
+WS_RESTART_DELAY_INITIAL = 5
+WS_RESTART_DELAY_MAX = 300
+
 SERVICE_SET_WAKE_SCHEDULE = "set_wake_schedule"
 SERVICE_DISABLE_WAKE_SCHEDULE = "disable_wake_schedule"
 
@@ -99,18 +103,11 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _update_state_from_device(self, state: Any) -> None:
         """Update internal state from a DeviceState object."""
         serial = state.serial_number
-        reported = state.raw_data.get("reported", {})
-        cfg_default = reported.get("cfg", {}).get("default", {})
-        if not isinstance(cfg_default, dict):
-            cfg_default = {}
-        if not cfg_default:
-            cfg_default = reported.get("cfg.default", {})
-            if not isinstance(cfg_default, dict):
-                cfg_default = {}
+        reported = state.reported
+        cfg_default = state.cfg_default
         pairing = reported.get("pairing", {})
         if not isinstance(pairing, dict):
             pairing = {}
-        raw_schedule = cfg_default.get("wake_schedule")
         self._states[serial] = {
             "reported_state": state.reported_state,
             "desired_state": state.desired_state,
@@ -118,9 +115,15 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "reported_version": reported.get("version"),
             "model": reported.get("model"),
             "boiler_temps": [
-                {"id": b.id, "cur_temp": b.current_temp, "temp_sp": b.target_temp}
-                for b in (state.boiler_temps or [])
+                {
+                    "id": b.id,
+                    "role": b.role,
+                    "cur_temp": b.current_temp,
+                    "temp_sp": b.target_temp,
+                }
+                for b in state.boiler_temps
             ],
+            "single_boiler": state.is_single_boiler,
             "grind_size": state.grind_size,
             "theme": cfg_default.get("theme"),
             "brightness": cfg_default.get("brightness"),
@@ -133,12 +136,11 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "remote_wake", cfg_default.get("remote_wake_enable")
             ),
             "last_paired": pairing.get("last_paired"),
-            "wake_schedule_raw": raw_schedule,
-            "wake_schedule": [
-                s for s in raw_schedule if isinstance(s, dict)
-            ] if isinstance(raw_schedule, list) else [],
-            "firmware": reported.get("firmware", {}),
-            "errors": reported.get("errors"),
+            "wake_schedule_raw": cfg_default.get("wake_schedule"),
+            "wake_schedule": state.wake_schedule,
+            "firmware": state.firmware,
+            "errors": state.errors,
+            "signal_strength": state.signal_strength,
         }
 
     async def async_start_websocket(self) -> None:
@@ -169,28 +171,42 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
     async def _websocket_listener(self) -> None:
-        """Listen for WebSocket state updates."""
+        """Listen for WebSocket state updates, restarting the stream if it fails."""
         _LOGGER.debug("Starting WebSocket listener")
-        try:
-            async for state in self.client.tail_state():
-                _LOGGER.debug(
-                    "Received state update for %s: %s",
-                    state.serial_number,
-                    state.reported_state,
-                )
-                self._update_state_from_device(state)
-                self.async_set_updated_data(self._states)
-        except asyncio.CancelledError:
-            _LOGGER.debug("WebSocket listener cancelled")
-            raise
-        except Exception as err:
-            if _is_auth_error(err):
-                _LOGGER.error(
-                    "Authentication failure detected, requesting re-auth: %s", err
-                )
-                self.config_entry.async_start_reauth(self.hass)
+        delay = WS_RESTART_DELAY_INITIAL
+        while True:
+            try:
+                async for state in self.client.tail_state():
+                    _LOGGER.debug(
+                        "Received state update for %s: %s",
+                        state.serial_number,
+                        state.reported_state,
+                    )
+                    self._update_state_from_device(state)
+                    self.async_set_updated_data(self._states)
+                    delay = WS_RESTART_DELAY_INITIAL
+            except asyncio.CancelledError:
+                _LOGGER.debug("WebSocket listener cancelled")
+                raise
+            except Exception as exc:
+                if _is_auth_error(exc):
+                    _LOGGER.error(
+                        "Authentication failure detected, requesting re-auth: %s", exc
+                    )
+                    self.config_entry.async_start_reauth(self.hass)
+                    return
+                err: Exception = exc
             else:
-                _LOGGER.exception("WebSocket error: %s", err)
+                err = ConnectionError("State stream ended")
+
+            # Without a stream the values go stale, so mark entities unavailable
+            # until the next state report arrives.
+            self.async_set_update_error(err)
+            _LOGGER.warning(
+                "WebSocket stream failed (%s), restarting in %s s", err, delay
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, WS_RESTART_DELAY_MAX)
 
     async def async_stop_websocket(self) -> None:
         """Stop the WebSocket listener task."""
@@ -261,6 +277,8 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                 days_of_week = "*"
             cron = f"{minutes} {hours} * * {days_of_week}"
 
+            # Merges into the appliance's existing schedules: one with the
+            # same cron is updated, anything else is appended.
             await coordinator.client.set_wake_schedule(
                 cron=cron,
                 enabled=enabled,
@@ -291,19 +309,9 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         coordinator = entry.runtime_data
 
         try:
-            # The device silently ignores an empty wake_schedule list, so the
-            # schedule can't be cleared outright. Instead, preserve the known
-            # entries and flip each one's "on" flag to False.
-            state = coordinator.get_state(serial) or {}
-            current_schedule = state.get("wake_schedule") or []
-            if current_schedule:
-                disabled_schedule = [
-                    {**s, "on": False} for s in current_schedule
-                ]
-                await coordinator.client.set_coffee_params(
-                    {"cfg": {"wake_schedule": disabled_schedule}},
-                    serial=serial,
-                )
+            # Turns every schedule off but keeps it, since the device ignores
+            # an empty wake_schedule list.
+            await coordinator.client.disable_wake_schedule(serial=serial)
         except Exception as err:
             raise HomeAssistantError(f"Failed to disable wake schedule: {err}") from err
 

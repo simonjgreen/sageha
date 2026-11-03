@@ -50,12 +50,20 @@
           "refresh_token": "Refresh Token",
           "brand": "Brand"
         }
+      },
+      "mfa": {
+        "title": "Two-step verification",
+        "description": "Your account has two-step verification enabled. Enter the code from your authenticator app.",
+        "data": {
+          "otp": "Verification code"
+        }
       }
     },
     "error": {
       "invalid_auth": "Invalid authentication. Please check your credentials.",
       "cannot_connect": "Unable to connect to Sage/Breville servers.",
-      "unknown": "An unexpected error occurred."
+      "unknown": "An unexpected error occurred.",
+      "invalid_mfa_code": "The verification code was not accepted. Please try again."
     },
     "abort": {
       "already_configured": "This account is already configured.",
@@ -120,6 +128,9 @@
       },
       "errors_count": {
         "name": "Errors Count"
+      },
+      "signal_strength": {
+        "name": "Wi-Fi Signal Strength"
       }
     },
     "switch": {

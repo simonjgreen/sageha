@@ -9,6 +9,8 @@ import logging
 from typing import Any
 import zoneinfo
 
+from sagecoffee.models import BOILER_ROLE_BREW, BOILER_ROLE_STEAM
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -20,7 +22,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import SageCoffeeConfigEntry, SageCoffeeCoordinator
-from .const import BOILER_BREW, BOILER_STEAM
 from .entity import SageCoffeeEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,6 +32,8 @@ class SageCoffeeSensorEntityDescription(SensorEntityDescription):
     """Describes a Sage Coffee sensor entity."""
 
     value_fn: Callable[[dict[str, Any]], Any]
+    attributes_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    steam_boiler: bool = False
 
 
 def _parse_cron_next(
@@ -104,24 +107,24 @@ def _get_next_wake_time(state: dict[str, Any]) -> datetime | None:
     return next_wake
 
 
-def _get_boiler_temp(state: dict[str, Any], boiler_id: int | str) -> float | None:
+def _find_boiler(state: dict[str, Any], role: str) -> dict[str, Any] | None:
+    """Find a boiler by its role ("brew" or "steam")."""
+    for boiler in state.get("boiler_temps") or []:
+        if boiler.get("role") == role:
+            return boiler
+    return None
+
+
+def _get_boiler_temp(state: dict[str, Any], role: str) -> float | None:
     """Get current temperature for a boiler."""
-    boilers = state.get("boiler_temps", [])
-    for boiler in boilers:
-        # Compare as strings since library returns string IDs
-        if str(boiler.get("id")) == str(boiler_id):
-            return boiler.get("cur_temp")
-    return None
+    boiler = _find_boiler(state, role)
+    return boiler.get("cur_temp") if boiler else None
 
 
-def _get_boiler_target(state: dict[str, Any], boiler_id: int | str) -> float | None:
+def _get_boiler_target(state: dict[str, Any], role: str) -> float | None:
     """Get target temperature for a boiler."""
-    boilers = state.get("boiler_temps", [])
-    for boiler in boilers:
-        # Compare as strings since library returns string IDs
-        if str(boiler.get("id")) == str(boiler_id):
-            return boiler.get("temp_sp")
-    return None
+    boiler = _find_boiler(state, role)
+    return boiler.get("temp_sp") if boiler else None
 
 
 def _format_temperature_unit(state: dict[str, Any]) -> str | None:
@@ -168,6 +171,12 @@ def _get_errors_count(state: dict[str, Any]) -> int | None:
     return None
 
 
+def _get_errors_attributes(state: dict[str, Any]) -> dict[str, Any]:
+    """Return the reported appliance errors (e.g. WaterTankEmpty) as attributes."""
+    errors = state.get("errors")
+    return {"errors": errors if isinstance(errors, list) else []}
+
+
 def _format_wake_schedule(state: dict[str, Any]) -> str | None:
     """Return a compact wake schedule summary."""
     schedule = state.get("wake_schedule_raw")
@@ -204,7 +213,7 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_temp(state, BOILER_BREW),
+        value_fn=lambda state: _get_boiler_temp(state, BOILER_ROLE_BREW),
     ),
     SageCoffeeSensorEntityDescription(
         key="brew_target",
@@ -213,26 +222,28 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_target(state, BOILER_BREW),
+        value_fn=lambda state: _get_boiler_target(state, BOILER_ROLE_BREW),
     ),
     SageCoffeeSensorEntityDescription(
         key="steam_temp",
+        steam_boiler=True,
         translation_key="steam_temperature",
         name="Steam Temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_temp(state, BOILER_STEAM),
+        value_fn=lambda state: _get_boiler_temp(state, BOILER_ROLE_STEAM),
     ),
     SageCoffeeSensorEntityDescription(
         key="steam_target",
+        steam_boiler=True,
         translation_key="steam_target",
         name="Steam Target Temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         suggested_display_precision=1,
-        value_fn=lambda state: _get_boiler_target(state, BOILER_STEAM),
+        value_fn=lambda state: _get_boiler_target(state, BOILER_ROLE_STEAM),
     ),
     SageCoffeeSensorEntityDescription(
         key="grind_size",
@@ -357,6 +368,17 @@ SENSOR_DESCRIPTIONS: tuple[SageCoffeeSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=_get_errors_count,
+        attributes_fn=_get_errors_attributes,
+    ),
+    SageCoffeeSensorEntityDescription(
+        key="signal_strength",
+        translation_key="signal_strength",
+        name="Wi-Fi Signal Strength",
+        icon="mdi:wifi",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda state: state.get("signal_strength"),
     ),
 )
 
@@ -372,7 +394,11 @@ async def async_setup_entry(
     entities: list[SageCoffeeSensor] = []
 
     for appliance in coordinator.appliances:
+        state = coordinator.get_state(appliance.serial_number) or {}
+        single_boiler = bool(state.get("single_boiler"))
         for description in SENSOR_DESCRIPTIONS:
+            if description.steam_boiler and single_boiler:
+                continue
             entities.append(SageCoffeeSensor(coordinator, appliance, description))
 
     async_add_entities(entities)
@@ -401,3 +427,14 @@ class SageCoffeeSensor(SageCoffeeEntity, SensorEntity):
         if state is None:
             return None
         return self.entity_description.value_fn(state)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return additional state attributes."""
+        attributes_fn = self.entity_description.attributes_fn
+        if attributes_fn is None:
+            return None
+        state = self.coordinator.get_state(self._serial)
+        if state is None:
+            return None
+        return attributes_fn(state)

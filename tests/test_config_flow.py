@@ -1,8 +1,11 @@
 """Tests for the Sage Coffee config flow."""
 
-from unittest.mock import AsyncMock, MagicMock
+from collections.abc import Generator
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
+from sagecoffee.auth import MfaRequiredError
 
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
@@ -15,6 +18,7 @@ from custom_components.sagecoffee.const import (
     CONF_REFRESH_TOKEN,
     DOMAIN,
     MACHINE_TYPE_BREVILLE,
+    MACHINE_TYPE_LELIT,
     MACHINE_TYPE_SAGE,
 )
 
@@ -335,3 +339,167 @@ async def test_reauth_token_failure_shows_error(
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
     assert existing_entry.data[CONF_REFRESH_TOKEN] == "expired-token"
+
+
+def mfa_required_error() -> MfaRequiredError:
+    """The error the library raises when a password login needs a second factor."""
+    return MfaRequiredError("mock-mfa-token")
+
+
+@pytest.fixture
+def mock_mfa_login(
+    mock_auth_client: MagicMock, mock_tokens: MagicMock
+) -> AsyncMock:
+    """The one-time-code exchange on the patched AuthClient."""
+    mock_auth_client.mfa_otp_login = AsyncMock(return_value=mock_tokens)
+    return mock_auth_client.mfa_otp_login
+
+
+async def test_password_flow_with_mfa_creates_entry(
+    hass: HomeAssistant,
+    mock_auth_client: MagicMock,
+    mock_mfa_login: AsyncMock,
+    mock_setup_entry: AsyncMock,
+) -> None:
+    """An account with MFA is asked for a one-time code before the entry is created."""
+    mock_auth_client.password_realm_login.side_effect = mfa_required_error()
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "password"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], PASSWORD_INPUT
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "mfa"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"otp": " 123456 "}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {
+        CONF_REFRESH_TOKEN: MOCK_ROTATED_TOKEN,
+        CONF_BRAND: MACHINE_TYPE_SAGE,
+    }
+    assert result["result"].unique_id == MOCK_AUTH0_SUB
+    mock_mfa_login.assert_awaited_once_with("mock-mfa-token", " 123456 ")
+
+
+async def test_mfa_wrong_code_shows_error(
+    hass: HomeAssistant,
+    mock_auth_client: MagicMock,
+    mock_mfa_login: AsyncMock,
+    mock_tokens: MagicMock,
+    mock_setup_entry: AsyncMock,
+) -> None:
+    """A rejected code keeps the user on the MFA step so they can retry."""
+    mock_auth_client.password_realm_login.side_effect = mfa_required_error()
+    request = httpx.Request("POST", "https://my.breville.com/oauth/token")
+    mock_mfa_login.side_effect = httpx.HTTPStatusError(
+        "403", request=request, response=httpx.Response(403, request=request)
+    )
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "password"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], PASSWORD_INPUT
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"otp": "000000"}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "mfa"
+    assert result["errors"] == {"base": "invalid_mfa_code"}
+
+    mock_mfa_login.side_effect = None
+    mock_mfa_login.return_value = mock_tokens
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"otp": "123456"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_mfa_unexpected_error_shows_unknown(
+    hass: HomeAssistant,
+    mock_auth_client: MagicMock,
+    mock_mfa_login: AsyncMock,
+    mock_setup_entry: AsyncMock,
+) -> None:
+    """Failures other than a rejected code are reported as unknown errors."""
+    mock_auth_client.password_realm_login.side_effect = mfa_required_error()
+    mock_mfa_login.side_effect = RuntimeError("boom")
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "password"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], PASSWORD_INPUT
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"otp": "123456"}
+    )
+
+    assert result["errors"] == {"base": "unknown"}
+
+
+async def test_reauth_password_with_mfa_updates_entry(
+    hass: HomeAssistant,
+    mock_auth_client: MagicMock,
+    mock_mfa_login: AsyncMock,
+    mock_setup_entry: AsyncMock,
+    existing_entry: MockConfigEntry,
+) -> None:
+    """Reauthenticating an MFA account updates the existing entry after the code."""
+    mock_auth_client.password_realm_login.side_effect = mfa_required_error()
+
+    result = await existing_entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "reauth_password"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**PASSWORD_INPUT, CONF_BRAND: MACHINE_TYPE_LELIT}
+    )
+    assert result["step_id"] == "mfa"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"otp": "123456"}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert existing_entry.data == {
+        CONF_REFRESH_TOKEN: MOCK_ROTATED_TOKEN,
+        CONF_BRAND: MACHINE_TYPE_LELIT,
+    }
+
+
+async def test_password_flow_accepts_lelit_brand(
+    hass: HomeAssistant,
+    mock_auth_client: MagicMock,
+    mock_setup_entry: AsyncMock,
+) -> None:
+    """Lelit accounts use the same backend with their own app identifier."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "password"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**PASSWORD_INPUT, CONF_BRAND: MACHINE_TYPE_LELIT}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_BRAND] == MACHINE_TYPE_LELIT

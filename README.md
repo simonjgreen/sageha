@@ -44,9 +44,9 @@ Sage Coffee is included in the default HACS repository, so no custom repository 
 2. Click **Add Integration**
 3. Search for "Sage Coffee"
 4. Choose your authentication method:
-   - **Email and Password**: Enter your Sage/Breville account credentials
+   - **Email and Password**: Enter your Sage/Breville account credentials. If your account has two-step verification enabled, you will then be asked for the code from your authenticator app
    - **Refresh Token**: If you already have a refresh token from the sagectl CLI tool
-   - **Machine Type**: Select Sage (Europe) or Breville (Rest of the world)
+   - **Machine Type**: Select Sage (Europe), Breville (Rest of the world) or Lelit
 
 ### Getting a Refresh Token (Advanced)
 
@@ -101,8 +101,8 @@ For each coffee machine, the integration creates:
 | State                    | Current machine state (ready, warming, asleep) |
 | Brew Temperature         | Current brew boiler temperature                |
 | Brew Target Temperature  | Target brew boiler temperature                 |
-| Steam Temperature        | Current steam boiler temperature               |
-| Steam Target Temperature | Target steam boiler temperature                |
+| Steam Temperature        | Current steam boiler temperature (dual boiler) |
+| Steam Target Temperature | Target steam boiler temperature (dual boiler)  |
 | Theme                    | Display theme (dark/light)                     |
 | Display Brightness       | Display brightness percentage                  |
 | Grind Size               | Current grinder setting                        |
@@ -119,7 +119,8 @@ For each coffee machine, the integration creates:
 | MCU Firmware Version     | Installed MCU firmware version (diagnostic)    |
 | OTA Service Version      | Installed OTA service version (diagnostic)     |
 | SOM Image Version        | Installed SOM image version (diagnostic)       |
-| Errors Count             | Number of appliance errors reported            |
+| Errors Count             | Number of appliance errors; names in `errors`  |
+| Wi-Fi Signal Strength    | Reported Wi-Fi signal strength (diagnostic)    |
 
 ## Actions
 
@@ -139,6 +140,8 @@ data:
 ```
 
 The `days` field is optional. If omitted, the schedule runs every day. The `enabled` field (default `true`) can be set to `false` to create a disabled schedule.
+
+Existing schedules, including ones created in the Sage/Breville app, are kept: the new schedule is added alongside them, and calling the action again with the same time and days enables or disables that schedule.
 
 ### Disable wake schedule
 

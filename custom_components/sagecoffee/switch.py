@@ -53,7 +53,7 @@ class SageCoffeePowerSwitch(SageCoffeeEntity, SwitchEntity):
         state = self.coordinator.get_state(self._serial)
         if state is None:
             return None
-        reported_state = state.get("reported_state", "").lower()
+        reported_state = (state.get("reported_state") or "").lower()
         return reported_state in (STATE_READY, STATE_WARMING)
 
     @property
@@ -71,7 +71,7 @@ class SageCoffeePowerSwitch(SageCoffeeEntity, SwitchEntity):
         """Turn on the coffee machine (wake)."""
         _LOGGER.debug("Waking up coffee machine %s", self._serial)
         try:
-            await self.coordinator.client.wake()
+            await self.coordinator.client.wake(self._serial)
         except Exception as err:
             _LOGGER.error("Failed to wake coffee machine: %s", err)
             raise
@@ -80,7 +80,7 @@ class SageCoffeePowerSwitch(SageCoffeeEntity, SwitchEntity):
         """Turn off the coffee machine (sleep)."""
         _LOGGER.debug("Putting coffee machine %s to sleep", self._serial)
         try:
-            await self.coordinator.client.sleep()
+            await self.coordinator.client.sleep(self._serial)
         except Exception as err:
             _LOGGER.error("Failed to put coffee machine to sleep: %s", err)
             raise

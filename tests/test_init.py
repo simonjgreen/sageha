@@ -3,10 +3,15 @@
 from unittest.mock import MagicMock
 
 import pytest
+from sagecoffee.models import DeviceState
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, ServiceValidationError
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    HomeAssistantError,
+    ServiceValidationError,
+)
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -53,6 +58,46 @@ async def test_setup_and_unload(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.NOT_LOADED
     mock_client.__aexit__.assert_awaited()
+
+
+def make_device_state(boiler_count: int) -> DeviceState:
+    """A device state as returned by the sagecoffee client."""
+    return DeviceState(
+        raw_data={
+            "reported": {
+                "state": "ready",
+                "boiler": [
+                    {"cur_temp": 90.0, "temp_sp": 93.0} for _ in range(boiler_count)
+                ],
+            }
+        },
+        serial_number=MOCK_SERIAL,
+        version=1,
+    )
+
+
+@pytest.mark.parametrize(
+    ("boiler_count", "has_steam_sensors"), [(1, False), (2, True)]
+)
+async def test_steam_sensors_only_for_dual_boiler_machines(
+    hass: HomeAssistant,
+    mock_client: MagicMock,
+    config_entry: MockConfigEntry,
+    boiler_count: int,
+    has_steam_sensors: bool,
+) -> None:
+    """Single-boiler machines have no steam boiler, so get no steam sensors."""
+    mock_client.get_last_state.return_value = make_device_state(boiler_count)
+    assert await setup_entry(hass, config_entry)
+
+    registry = er.async_get(hass)
+    unique_ids = {
+        e.unique_id
+        for e in er.async_entries_for_config_entry(registry, config_entry.entry_id)
+    }
+    assert f"{MOCK_SERIAL}_brew_temp" in unique_ids
+    assert (f"{MOCK_SERIAL}_steam_temp" in unique_ids) is has_steam_sensors
+    assert (f"{MOCK_SERIAL}_steam_target" in unique_ids) is has_steam_sensors
 
 
 async def test_setup_without_refresh_token_starts_reauth(
@@ -177,6 +222,7 @@ async def test_set_wake_schedule_builds_cron(
         blocking=True,
     )
 
+    # The library merges the schedule into the appliance's existing ones.
     mock_client.set_wake_schedule.assert_awaited_once_with(
         cron="30 6 * * 1,6,7", enabled=True, serial=MOCK_SERIAL
     )
@@ -216,44 +262,26 @@ async def test_set_wake_schedule_unknown_serial(
     mock_client.set_wake_schedule.assert_not_awaited()
 
 
-async def test_disable_wake_schedule_preserves_entries(
+async def test_set_wake_schedule_failure_raises(
     hass: HomeAssistant, mock_client: MagicMock, config_entry: MockConfigEntry
 ) -> None:
-    """Disabling flips each entry's "on" flag instead of sending an empty list (#47)."""
+    """A library failure is surfaced as a HomeAssistantError."""
     assert await setup_entry(hass, config_entry)
+    mock_client.set_wake_schedule.side_effect = TimeoutError("no state")
 
-    coordinator = config_entry.runtime_data
-    coordinator._states[MOCK_SERIAL] = {
-        "wake_schedule": [
-            {"cron": "30 6 * * 1-5", "on": True, "d": 1},
-            {"cron": "0 8 * * 6,7", "on": True, "d": 2},
-        ]
-    }
-
-    await hass.services.async_call(
-        DOMAIN,
-        "disable_wake_schedule",
-        {"serial": MOCK_SERIAL},
-        blocking=True,
-    )
-
-    mock_client.set_coffee_params.assert_awaited_once_with(
-        {
-            "cfg": {
-                "wake_schedule": [
-                    {"cron": "30 6 * * 1-5", "on": False, "d": 1},
-                    {"cron": "0 8 * * 6,7", "on": False, "d": 2},
-                ]
-            }
-        },
-        serial=MOCK_SERIAL,
-    )
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            DOMAIN,
+            "set_wake_schedule",
+            {"serial": MOCK_SERIAL, "hours": 6, "minutes": 30},
+            blocking=True,
+        )
 
 
-async def test_disable_wake_schedule_with_no_schedule_sends_nothing(
+async def test_disable_wake_schedule(
     hass: HomeAssistant, mock_client: MagicMock, config_entry: MockConfigEntry
 ) -> None:
-    """With no known schedule there is nothing to disable, so no API call is made."""
+    """Disabling delegates to the library, which turns schedules off (#47)."""
     assert await setup_entry(hass, config_entry)
 
     await hass.services.async_call(
@@ -263,4 +291,4 @@ async def test_disable_wake_schedule_with_no_schedule_sends_nothing(
         blocking=True,
     )
 
-    mock_client.set_coffee_params.assert_not_awaited()
+    mock_client.disable_wake_schedule.assert_awaited_once_with(serial=MOCK_SERIAL)

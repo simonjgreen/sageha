@@ -1,6 +1,8 @@
 set_wake_schedule:
   name: Set wake schedule
-  description: Set an automatic wake schedule for the appliance.
+  description: >-
+    Add or update an automatic wake schedule for the appliance. Existing
+    schedules are kept; a schedule with the same time and days is updated.
   fields:
     serial:
       name: Appliance serial
