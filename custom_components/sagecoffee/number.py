@@ -101,10 +101,12 @@ class SageCoffeeNumber(SageCoffeeEntity, NumberEntity):
     @property
     def available(self) -> bool:
         """Return if the entity is available."""
+        if not super().available:
+            return False
         state = self.coordinator.get_state(self._serial)
         if state is None:
             return False
-        reported_state = state.get("reported_state", "").lower()
+        reported_state = (state.get("reported_state") or "").lower()
         return reported_state != STATE_ASLEEP
 
     async def async_set_native_value(self, value: float) -> None:

@@ -60,7 +60,7 @@ class SageCoffeeWorkLight(SageCoffeeEntity, LightEntity):
         state = self.coordinator.get_state(self._serial)
         if state is None:
             return None
-        if state.get("reported_state", "").lower() == STATE_ASLEEP:
+        if (state.get("reported_state") or "").lower() == STATE_ASLEEP:
             return False
         value = state.get("work_light_brightness")
         if value is None:

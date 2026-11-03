@@ -53,7 +53,7 @@ class SageCoffeePowerSwitch(SageCoffeeEntity, SwitchEntity):
         state = self.coordinator.get_state(self._serial)
         if state is None:
             return None
-        reported_state = state.get("reported_state", "").lower()
+        reported_state = (state.get("reported_state") or "").lower()
         return reported_state in (STATE_READY, STATE_WARMING)
 
     @property

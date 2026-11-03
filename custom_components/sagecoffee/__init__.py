@@ -36,6 +36,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Delay before restarting a failed state stream, doubled up to the maximum
+WS_RESTART_DELAY_INITIAL = 5
+WS_RESTART_DELAY_MAX = 300
+
 SERVICE_SET_WAKE_SCHEDULE = "set_wake_schedule"
 SERVICE_DISABLE_WAKE_SCHEDULE = "disable_wake_schedule"
 
@@ -167,28 +171,42 @@ class SageCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
     async def _websocket_listener(self) -> None:
-        """Listen for WebSocket state updates."""
+        """Listen for WebSocket state updates, restarting the stream if it fails."""
         _LOGGER.debug("Starting WebSocket listener")
-        try:
-            async for state in self.client.tail_state():
-                _LOGGER.debug(
-                    "Received state update for %s: %s",
-                    state.serial_number,
-                    state.reported_state,
-                )
-                self._update_state_from_device(state)
-                self.async_set_updated_data(self._states)
-        except asyncio.CancelledError:
-            _LOGGER.debug("WebSocket listener cancelled")
-            raise
-        except Exception as err:
-            if _is_auth_error(err):
-                _LOGGER.error(
-                    "Authentication failure detected, requesting re-auth: %s", err
-                )
-                self.config_entry.async_start_reauth(self.hass)
+        delay = WS_RESTART_DELAY_INITIAL
+        while True:
+            try:
+                async for state in self.client.tail_state():
+                    _LOGGER.debug(
+                        "Received state update for %s: %s",
+                        state.serial_number,
+                        state.reported_state,
+                    )
+                    self._update_state_from_device(state)
+                    self.async_set_updated_data(self._states)
+                    delay = WS_RESTART_DELAY_INITIAL
+            except asyncio.CancelledError:
+                _LOGGER.debug("WebSocket listener cancelled")
+                raise
+            except Exception as exc:
+                if _is_auth_error(exc):
+                    _LOGGER.error(
+                        "Authentication failure detected, requesting re-auth: %s", exc
+                    )
+                    self.config_entry.async_start_reauth(self.hass)
+                    return
+                err: Exception = exc
             else:
-                _LOGGER.exception("WebSocket error: %s", err)
+                err = ConnectionError("State stream ended")
+
+            # Without a stream the values go stale, so mark entities unavailable
+            # until the next state report arrives.
+            self.async_set_update_error(err)
+            _LOGGER.warning(
+                "WebSocket stream failed (%s), restarting in %s s", err, delay
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, WS_RESTART_DELAY_MAX)
 
     async def async_stop_websocket(self) -> None:
         """Stop the WebSocket listener task."""
